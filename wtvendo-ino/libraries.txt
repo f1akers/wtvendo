@@ -1,0 +1,9 @@
+# Required Arduino Libraries for WTVendo
+# Install via Arduino IDE Library Manager or PlatformIO
+#
+# Format: LibraryName >= MinVersion — Purpose
+
+Adafruit PWM Servo Driver Library >= 3.0   # PCA9685 16-channel servo control
+hd44780 >= 1.3                             # LCD I2C display (auto-detect address/pin mapping)
+Keypad >= 3.1                              # 4x4 membrane keypad non-blocking input
+Wire (built-in)                            # I2C bus communication (included with Arduino core)
