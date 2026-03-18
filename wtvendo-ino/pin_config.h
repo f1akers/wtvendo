@@ -7,7 +7,7 @@
  * changes only require edits in one place.  Values come from
  * research.md §4 and §6 (wiring reference).
  *
- * Target board: Arduino Mega 2560
+ * Target board: Arduino Uno
  */
 
 #ifndef PIN_CONFIG_H
@@ -21,19 +21,20 @@ const byte KEYPAD_ROW_PINS[4] = {2, 3, 4, 5};
 const byte KEYPAD_COL_PINS[4] = {6, 7, 8, 10};
 
 // ── I2C Bus Pins ─────────────────────────────────────────────────────
-//    Physical wiring uses A4/A5.  Use a SoftWire-compatible library if
-//    the hardware Wire library does not support custom SDA/SCL on your
-//    board variant.
-#define I2C_SCL_PIN  A4   // SCL physical wire
-#define I2C_SDA_PIN  A5   // SDA physical wire
+//    A4 and A5 are the hardware I2C pins on the Uno.  Wire.begin() uses
+//    them automatically — no SoftWire library needed.
+#define I2C_SCL_PIN  A4   // SCL — hardware I2C on Uno
+#define I2C_SDA_PIN  A5   // SDA — hardware I2C on Uno
 
 // ── I2C Addresses ───────────────────────────────────────────────────
 #define PCA9685_ADDR  0x40   // 16-channel PWM servo driver
 #define LCD_ADDR      0x27   // 20×4 character LCD (PCF8574 backpack)
 
-// ── Serial Baud Rates ───────────────────────────────────────────────
-#define SERIAL_BAUD   115200  // Serial1 – Pi ↔ Arduino protocol link
-#define DEBUG_BAUD    9600    // Serial0 – USB debug console
+// ── Serial Baud Rate ─────────────────────────────────────────────────
+//    Hardware Serial (pins 0/1) is used exclusively for Pi ↔ Arduino
+//    protocol.  No separate debug serial — do not add Serial.print()
+//    calls as they will corrupt the packet stream.
+#define SERIAL_BAUD   115200
 
 // ── PCA9685 Output Enable ────────────────────────────────────────────
 //    OE is active LOW.  Drive it LOW explicitly so clone boards without a

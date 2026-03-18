@@ -5,7 +5,7 @@
  *
  * Protocol reference: docs/serial-protocol.md
  *
- * Dependencies: Arduino core (Serial1)
+ * Dependencies: Arduino core (Serial)
  */
 
 #include "serial_comm.h"
@@ -83,14 +83,14 @@ void sendPacket(uint8_t cmd, const uint8_t* payload, uint8_t len)
 {
     uint8_t chk = computeChecksum(cmd, len, payload);
 
-    Serial1.write(START_MARKER);
-    Serial1.write(cmd);
-    Serial1.write(len);
+    Serial.write(START_MARKER);
+    Serial.write(cmd);
+    Serial.write(len);
     if (payload && len > 0) {
-        Serial1.write(payload, len);
+        Serial.write(payload, len);
     }
-    Serial1.write(chk);
-    Serial1.flush();  // Ensure all bytes are sent before returning
+    Serial.write(chk);
+    Serial.flush();  // Ensure all bytes are sent before returning
 }
 
 void sendAck(const uint8_t* payload, uint8_t len)
@@ -131,8 +131,8 @@ static uint8_t  pktIdx;
 
 bool readPacket(Packet* pkt)
 {
-    while (Serial1.available()) {
-        uint8_t b = Serial1.read();
+    while (Serial.available()) {
+        uint8_t b = Serial.read();
 
         switch (parserState) {
 

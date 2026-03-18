@@ -13,7 +13,7 @@
  * events (keypad presses, sensor triggers) are stored in a circular
  * event buffer and delivered to the Pi via POLL_EVENTS (0x01).
  *
- * Dependencies: Arduino core (Serial1, millis)
+ * Dependencies: Arduino core (Serial, millis)
  */
 
 #ifndef SERIAL_COMM_H

@@ -61,11 +61,8 @@ void handleGetKeypad();
 
 void setup()
 {
-    // ── Debug serial (USB) ──────────────────────────────────────────
-    Serial.begin(DEBUG_BAUD);
-
-    // ── Pi communication serial ─────────────────────────────────────
-    Serial1.begin(SERIAL_BAUD);
+    // ── Pi communication serial (pins 0/1) ──────────────────────────
+    Serial.begin(SERIAL_BAUD);
 
     // ── I2C bus ─────────────────────────────────────────────────────
     Wire.begin();
@@ -79,13 +76,9 @@ void setup()
         lcd.writeLine(0, 0, "WTVendo Ready");
         lcd.writeLine(1, 0, "Insert a bottle to");
         lcd.writeLine(2, 0, "start!");
-    } else {
-        Serial.println(F("LCD init failed!"));
     }
 
     // ── Keypad (no explicit init needed — constructor configures) ───
-
-    Serial.println(F("WTVendo Arduino initialized"));
 }
 
 // =====================================================================
