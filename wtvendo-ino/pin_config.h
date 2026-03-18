@@ -44,8 +44,16 @@ const byte KEYPAD_COL_PINS[4] = {28, 29, 30, 31};
 #define DISPENSE_CH_MAX    8
 
 // ── Sensor Detection Thresholds ─────────────────────────────────────
-#define DETECT_THRESHOLD_MM    150   // Object closer than this → detected
-#define EXIT_THRESHOLD_MM      200   // Must exceed this to clear detection
+//    Hatch interior: 175 × 330 mm.  Sensor is mounted at one end,
+//    measuring along the 330 mm length.
+//
+//    Empty hatch  → sensor reads ~330 mm
+//    Bottle inside → sensor reads well below 330 mm
+//
+//    DETECT = 330 / 2 = 165 mm  (bottle occupies at least half the depth)
+//    EXIT   = 330 * 2/3 = 220 mm (55 mm hysteresis gap prevents flicker)
+#define DETECT_THRESHOLD_MM    165   // Object closer than this → detected
+#define EXIT_THRESHOLD_MM      220   // Must exceed this to clear detection
 #define CONSECUTIVE_READINGS   3     // Consecutive readings needed to confirm
 
 // ── Servo PWM Pulse Widths (microseconds) ───────────────────────────

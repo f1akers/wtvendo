@@ -8,8 +8,8 @@
  * Distance = echoHighDuration_us × 0.343 / 2  (speed of sound ≈ 343 m/s)
  *
  * Detection logic:
- *   - 3 consecutive readings < 150 mm → object detected
- *   - Stays detected until reading > 200 mm (hysteresis)
+ *   - 3 consecutive readings < 165 mm → object detected
+ *   - Stays detected until reading > 220 mm (hysteresis)
  *   - EVENT_OBJECT_DETECTED queued once per detection episode
  *
  * Dependencies: pin_config.h, serial_comm.h (eventBuffer)
