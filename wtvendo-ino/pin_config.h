@@ -39,7 +39,7 @@ const byte KEYPAD_COL_PINS[4] = {5, 4, 3, 2};
 // ── PCA9685 Output Enable ────────────────────────────────────────────
 //    OE is active LOW.  Drive it LOW explicitly so clone boards without a
 //    built-in pull-down resistor don't leave servo outputs floating on boot.
-#define OE_PIN  9
+#define OE_PIN  A0
 
 // ── PCA9685 Servo Channels ──────────────────────────────────────────
 //    Channels 0–5: 360° continuous-rotation dispensing servos
@@ -65,5 +65,9 @@ const byte KEYPAD_COL_PINS[4] = {5, 4, 3, 2};
 
 // ── Timing Constants ────────────────────────────────────────────────
 #define LCD_UPDATE_MS      200    // Minimum LCD refresh interval
+
+// ── Keypad Noise Filtering ─────────────────────────────────────────
+#define KEYPAD_DEBOUNCE_MS  100   // Keypad library debounce (default 10)
+#define KEYPAD_COOLDOWN_MS  300   // Min ms between accepted key events
 
 #endif // PIN_CONFIG_H
