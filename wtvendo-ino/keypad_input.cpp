@@ -50,11 +50,9 @@ void KeypadInput::update()
             if (_keypad.key[i].kchar == pending &&
                 (_keypad.key[i].kstate == PRESSED ||
                  _keypad.key[i].kstate == HOLD)) {
-                // Confirmed — real press
+                // Confirmed — store for Pi to read via GET_KEYPAD
                 _lastKey = pending;
                 _lastEventMs = millis();
-                uint8_t payload = (uint8_t)pending;
-                eventBuffer.enqueue(EVT_KEYPRESS, &payload, 1);
                 return;
             }
         }
@@ -69,7 +67,7 @@ void KeypadInput::update()
         if (now - _lastEventMs < KEYPAD_COOLDOWN_MS) {
             return;
         }
-        // Don't enqueue yet — mark as pending for confirmation
+        // Don't store yet — mark as pending for confirmation
         _pendingKey = key;
     }
 }

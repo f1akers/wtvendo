@@ -376,30 +376,28 @@ class SerialConnection:
 
     def poll_events(self) -> list[tuple[int, bytes]]:
         """
-        Collect events from the Arduino via POLL_EVENTS command.
+        Read keypad state from the Arduino via GET_KEYPAD command.
 
-        The Arduino queues events (e.g. keypad presses) in its ring buffer
-        and delivers one per POLL_EVENTS call.  Events are never pushed
-        unsolicited — this preserves the master/slave one-message-in-flight
-        protocol and prevents response interleaving.
+        Instead of relying on the Arduino's event buffer (which accumulates
+        ghost presses from electrical noise), this reads the single most
+        recent confirmed keypress directly.  Only one key can be pending
+        at a time, eliminating queue-based ghost buildup.
+
+        Returns the result in the same (event_cmd, event_payload) format
+        so existing state handlers work unchanged.
 
         Returns:
-            List of (event_cmd, event_payload) tuples. Empty list if no events
-            or on communication error.
+            List of (event_cmd, event_payload) tuples. Empty list if no key
+            pressed or on communication error.
         """
         try:
-            resp_cmd, resp_payload = self.send_command(CMD_POLL_EVENTS)
+            resp_cmd, resp_payload = self.send_command(CMD_GET_KEYPAD)
         except (TimeoutError, ConnectionError) as exc:
             logger.warning("poll_events failed: %s", exc)
             return []
 
-        # ACK with empty payload = no events queued
-        if resp_cmd == ACK:
-            return []
+        # ACK with payload byte — 0x00 means no key, otherwise ASCII key
+        if resp_cmd == ACK and len(resp_payload) >= 1 and resp_payload[0] != 0x00:
+            return [(EVENT_KEYPRESS, resp_payload)]
 
-        # Event response — cmd is the event type
-        if resp_cmd == EVENT_KEYPRESS:
-            return [(resp_cmd, resp_payload)]
-
-        logger.warning("Unexpected response to POLL_EVENTS: cmd=0x%02X", resp_cmd)
         return []

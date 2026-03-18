@@ -23,8 +23,8 @@ const byte KEYPAD_COL_PINS[4] = {5, 4, 3, 2};
 // ── I2C Bus Pins ─────────────────────────────────────────────────────
 //    A4 and A5 are the hardware I2C pins on the Uno.  Wire.begin() uses
 //    them automatically — no SoftWire library needed.
-#define I2C_SCL_PIN  A4   // SCL — hardware I2C on Uno
-#define I2C_SDA_PIN  A5   // SDA — hardware I2C on Uno
+#define I2C_SCL_PIN  A5   // SCL — hardware I2C on Uno
+#define I2C_SDA_PIN  A4   // SDA — hardware I2C on Uno
 
 // ── I2C Addresses ───────────────────────────────────────────────────
 #define PCA9685_ADDR  0x40   // 16-channel PWM servo driver

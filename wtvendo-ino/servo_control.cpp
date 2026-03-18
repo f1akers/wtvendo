@@ -28,30 +28,34 @@ ServoControl::ServoControl()
 
 void ServoControl::init()
 {
-    // Pull OE LOW before begin() so outputs are enabled as soon as PWM starts.
-    // Active LOW — clone boards without a built-in pull-down need this explicit.
+    // OE (active LOW) controls all PCA9685 outputs.
+    // Start HIGH (disabled) — only pull LOW when a servo needs to spin.
+    // This eliminates PWM noise that couples into keypad lines.
     pinMode(OE_PIN, OUTPUT);
-    digitalWrite(OE_PIN, LOW);
+    digitalWrite(OE_PIN, HIGH);
 
     _pwm.begin();
     _pwm.setPWMFreq(50);  // 50 Hz for standard hobby servos
     delay(10);            // Allow oscillator to stabilize
 
-    // Ensure trapdoor starts off (360° mode — no hold needed)
+    // Pre-set all channels to off so they're safe when OE goes LOW
     _pwm.setPWM(TRAPDOOR_CHANNEL, 0, 4096);
-
-    // Fully disable all dispensing channels (no PWM signal)
-    // Using neutral pulse (1500µs) leaves some servos creeping due to
-    // dead-band variation, so we turn the output off entirely.
     for (uint8_t ch = DISPENSE_CH_MIN; ch <= DISPENSE_CH_MAX; ch++) {
         _pwm.setPWM(ch, 0, 4096);
     }
+
+    // Sleep the PCA9685 — stops the internal 25MHz oscillator,
+    // eliminating EMI that couples into keypad lines.
+    // OE HIGH + sleep = completely silent until a servo is needed.
+    _pwm.sleep();
 }
 
 // ── Trapdoor (360° continuous rotation) ─────────────────────────────
 
 void ServoControl::trapdoorOpen()
 {
+    _pwm.wakeup();              // Restart oscillator (~500µs stabilize)
+    digitalWrite(OE_PIN, LOW);  // Enable outputs
     _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_FWD_US));
     _trapdoorSpinning   = true;
     _trapdoorStartMs    = millis();
@@ -60,6 +64,8 @@ void ServoControl::trapdoorOpen()
 
 void ServoControl::trapdoorClose()
 {
+    _pwm.wakeup();
+    digitalWrite(OE_PIN, LOW);
     _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_REV_US));
     _trapdoorSpinning   = true;
     _trapdoorStartMs    = millis();
@@ -91,12 +97,15 @@ void ServoControl::startDispense(uint8_t channel, uint16_t durationMs)
     _dispStartMs    = millis();
     _dispensing     = true;
 
-    // Start forward spin
+    _pwm.wakeup();
+    digitalWrite(OE_PIN, LOW);
     _pwm.setPWM(channel, 0, microsecondsToPWM(DISPENSE_FWD_US));
 }
 
 void ServoControl::update()
 {
+    bool wasBusy = isBusy();
+
     // Stop dispensing servo when duration expires
     if (_dispensing) {
         if (millis() - _dispStartMs >= _dispDurationMs) {
@@ -111,6 +120,14 @@ void ServoControl::update()
             _pwm.setPWM(TRAPDOOR_CHANNEL, 0, 4096);
             _trapdoorSpinning = false;
         }
+    }
+
+    // On busy→idle transition: disable outputs and sleep the PCA9685.
+    // Sleep stops the 25MHz oscillator — eliminates EMI into keypad lines.
+    // Only fires once (not every iteration) to avoid repeated I2C writes.
+    if (wasBusy && !isBusy()) {
+        digitalWrite(OE_PIN, HIGH);
+        _pwm.sleep();
     }
 }
 
