@@ -214,9 +214,10 @@ class SerialConnection:
             parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,
         )
-        # Allow Arduino to reset after serial open
-        time.sleep(0.1)
-        # Flush any garbage bytes in the buffer
+        # Pulse DTR low → triggers Uno reset via the DTR capacitor,
+        # then wait 1 s for the bootloader to finish before communicating.
+        self._serial.dtr = False
+        time.sleep(2.0)
         self._serial.reset_input_buffer()
         logger.info("Serial connection opened on %s at %d baud", self.port, self.baud_rate)
 
@@ -260,7 +261,11 @@ class SerialConnection:
             if result is not None:
                 return result
 
-        logger.debug("Read timeout — received %d bytes, no valid packet", len(buf))
+        logger.warning(
+            "Read timeout — received %d bytes, no valid packet. Raw: %s",
+            len(buf),
+            buf.hex(" ") if buf else "<empty>",
+        )
         return None
 
     def send_command(
@@ -327,36 +332,81 @@ class SerialConnection:
             f"No response after {self.max_retries} attempts for cmd 0x{cmd:02X}"
         )
 
+    def read_unsolicited_events(self) -> list[tuple[int, bytes]]:
+        """
+        Read any unsolicited event packets pushed by the Arduino.
+
+        The Arduino pushes keypad events immediately without waiting for
+        a poll.  This method reads all complete packets currently in the
+        serial buffer without sending any command.
+
+        Returns:
+            List of (event_cmd, event_payload) tuples. Empty if nothing
+            available.
+        """
+        if not self.is_open or self._serial is None:
+            return []
+
+        events: list[tuple[int, bytes]] = []
+        buf = bytearray()
+
+        # Drain everything currently in the serial buffer
+        waiting = self._serial.in_waiting
+        if waiting > 0:
+            buf.extend(self._serial.read(waiting))
+
+        # Parse all complete packets from the buffer
+        while buf:
+            result = parse_packet(bytes(buf))
+            if result is None:
+                break
+            cmd, payload = result
+            # Calculate how many bytes this packet consumed
+            # Find the start marker and skip past the full packet
+            start_idx = bytes(buf).index(START_MARKER)
+            packet_len = 4 + len(payload)  # START + CMD + LEN + PAYLOAD + CHK
+            buf = buf[start_idx + packet_len:]
+
+            if cmd == EVENT_KEYPRESS:
+                events.append((cmd, payload))
+            else:
+                logger.debug("Unsolicited packet cmd=0x%02X (ignored)", cmd)
+
+        return events
+
     def poll_events(self) -> list[tuple[int, bytes]]:
         """
-        Poll Arduino for queued events via POLL_EVENTS command.
+        Collect events from the Arduino.
 
-        Sends POLL_EVENTS (0x01) and returns the list of events received.
-        An ACK with empty payload means no events. An event response
-        (cmd = EVENT_KEYPRESS) is returned as a single-element list.
-        Multiple calls may be needed to drain the buffer.
+        Reads any unsolicited event packets the Arduino has already pushed,
+        then sends POLL_EVENTS as a fallback to retrieve any remaining
+        queued events.
 
         Returns:
             List of (event_cmd, event_payload) tuples. Empty list if no events
             or on communication error.
         """
+        # First, collect any events already pushed by the Arduino
+        events = self.read_unsolicited_events()
+
         try:
             resp_cmd, resp_payload = self.send_command(CMD_POLL_EVENTS)
         except (TimeoutError, ConnectionError) as exc:
             logger.warning("poll_events failed: %s", exc)
-            return []
+            return events
 
-        # ACK with empty payload = no events
+        # ACK with empty payload = no events remaining
         if resp_cmd == ACK and len(resp_payload) == 0:
-            return []
+            return events
 
         # ACK with payload shouldn't happen for POLL_EVENTS, but handle it
         if resp_cmd == ACK:
-            return []
+            return events
 
         # Event response — cmd is the event type
         if resp_cmd == EVENT_KEYPRESS:
-            return [(resp_cmd, resp_payload)]
+            events.append((resp_cmd, resp_payload))
+            return events
 
         logger.warning("Unexpected response to POLL_EVENTS: cmd=0x%02X", resp_cmd)
-        return []
+        return events

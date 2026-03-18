@@ -16,8 +16,10 @@ import os
 # Serial Communication
 # ---------------------------------------------------------------------------
 
-SERIAL_PORT: str = os.environ.get("WTVENDO_SERIAL_PORT", "/dev/ttyUSB0")
-"""Arduino serial port path. Override via WTVENDO_SERIAL_PORT env var."""
+_default_port = "COM4" if os.name == "nt" else "/dev/ttyUSB0"
+SERIAL_PORT: str = os.environ.get("WTVENDO_SERIAL_PORT", _default_port)
+"""Arduino serial port path. Override via WTVENDO_SERIAL_PORT env var.
+Windows default: COM3. Linux/Pi default: /dev/ttyUSB0."""
 
 BAUD_RATE: int = 115200
 """UART baud rate — must match Arduino SERIAL_BAUD."""
@@ -48,8 +50,12 @@ CONFIDENCE_THRESHOLD: float = 0.5
 # Camera
 # ---------------------------------------------------------------------------
 
-CAMERA_BACKEND: str = "picamera2"
-"""Camera backend: 'picamera2' (Pi Camera) or 'opencv' (USB webcam)."""
+CAMERA_BACKEND: str = os.environ.get(
+    "WTVENDO_CAMERA_BACKEND",
+    "opencv" if os.name == "nt" else "picamera2",
+)
+"""Camera backend: 'picamera2' (Pi Camera) or 'opencv' (USB webcam).
+Auto-selects 'opencv' on Windows. Override via WTVENDO_CAMERA_BACKEND env var."""
 
 # ---------------------------------------------------------------------------
 # Session

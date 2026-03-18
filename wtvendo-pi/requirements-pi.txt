@@ -1,0 +1,7 @@
+# WTVendo Pi — Raspberry Pi-only extras (install after requirements.txt)
+# ARM64 wheel for torch must be installed first:
+#   pip install torch>=2.1.0
+#   pip install -r requirements.txt
+#   pip install -r requirements-pi.txt
+picamera2>=0.3
+opencv-python-headless>=4.8

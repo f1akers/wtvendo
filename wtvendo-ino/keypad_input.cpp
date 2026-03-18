@@ -41,11 +41,9 @@ void KeypadInput::update()
     if (key != 0) {
         _lastKey = key;
 
-        // Auto-enqueue event for item keys ('1'–'9')
-        if (isItemKey(key)) {
-            uint8_t payload = (uint8_t)key;
-            eventBuffer.enqueue(EVT_KEYPRESS, &payload, 1);
-        }
+        // Enqueue all key presses — Pi decides which keys are actionable
+        uint8_t payload = (uint8_t)key;
+        eventBuffer.enqueue(EVT_KEYPRESS, &payload, 1);
     }
 }
 
@@ -56,15 +54,3 @@ char KeypadInput::getLastKey()
     return k;
 }
 
-bool KeypadInput::isItemKey(char key)
-{
-    return (key >= '1' && key <= '9');
-}
-
-uint8_t KeypadInput::getSlotFromKey(char key)
-{
-    if (isItemKey(key)) {
-        return (uint8_t)(key - '0');  // '1'→1, '2'→2, …, '9'→9
-    }
-    return 0;  // Invalid
-}

@@ -40,8 +40,10 @@ def _format_lines(line0: str = "", line1: str = "", line2: str = "", line3: str 
 def format_welcome() -> list[str]:
     """Welcome screen shown when machine is idle."""
     return _format_lines(
-        "Insert a bottle to",
-        "start!",
+        "*** WT-Vendo ***",
+        "",
+        "Insert a bottle",
+        "to get started!",
     )
 
 

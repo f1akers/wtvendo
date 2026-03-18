@@ -73,9 +73,10 @@ void setup()
     // ── LCD ─────────────────────────────────────────────────────────
     if (lcd.init()) {
         // Show welcome message using F() macro to keep strings in flash
-        lcd.writeLine(0, 0, "WTVendo Ready");
-        lcd.writeLine(1, 0, "Insert a bottle to");
-        lcd.writeLine(2, 0, "start!");
+        lcd.writeLine(0, 0, "*** WT-Vendo ***");
+        lcd.writeLine(1, 0, "");
+        lcd.writeLine(2, 0, "Insert a bottle");
+        lcd.writeLine(3, 0, "to get started!");
     }
 
     // ── Keypad (no explicit init needed — constructor configures) ───
@@ -101,7 +102,18 @@ void loop()
     //    Non-blocking scan.  Events auto-enqueued by KeypadInput.
     keypad.update();
 
-    // ── 3. Servo spin tracking (every iteration) ────────────────────
+    // ── 3. Push queued events immediately (unsolicited) ─────────────
+    //    Send any buffered events without waiting for Pi to poll.
+    //    This ensures keypad presses are visible on serial even when
+    //    the Pi is not connected or not polling.
+    {
+        Event evt;
+        while (eventBuffer.dequeue(&evt)) {
+            sendEvent(evt.cmd, evt.payload, evt.length);
+        }
+    }
+
+    // ── 4. Servo spin tracking (every iteration) ────────────────────
     //    Stops dispensing servo when duration expires.
     servos.update();
 }

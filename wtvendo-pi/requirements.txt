@@ -1,11 +1,5 @@
-# WTVendo Pi — Dependencies
-# Pin versions to minimum compatible releases
-
-# Install torch before the rest on Pi — ARM64 wheel must come from PyPI:
-#   pip install torch>=2.1.0
-#   pip install -r requirements.txt
+# WTVendo Pi — Core dependencies (Windows + Pi compatible)
 ultralytics>=8.0
 pyserial>=3.5
-picamera2>=0.3
-opencv-python-headless>=4.8
+opencv-python>=4.8
 numpy>=1.24

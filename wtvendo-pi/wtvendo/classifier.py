@@ -84,7 +84,7 @@ class PiCamera2Backend(CameraBackend):
 class OpenCVBackend(CameraBackend):
     """Camera backend using OpenCV VideoCapture for USB webcams."""
 
-    def __init__(self, device: int = 0) -> None:
+    def __init__(self, device: int = 2) -> None:
         import cv2
 
         self._cap = cv2.VideoCapture(device)

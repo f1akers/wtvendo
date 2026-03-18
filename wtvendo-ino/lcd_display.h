@@ -80,8 +80,8 @@ private:
      */
     char _lineCache[LCD_ROWS][LCD_COLS + 1];
 
-    /** @brief millis() timestamp of the last LCD write operation. */
-    uint32_t _lastWriteTime;
+    /** @brief millis() timestamp of the last write per row. */
+    uint32_t _lastWriteTime[LCD_ROWS];
 
     /** @brief Reset all cache entries to spaces. */
     void resetCache();

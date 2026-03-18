@@ -13,8 +13,10 @@
 #include "lcd_display.h"
 
 LcdDisplay::LcdDisplay()
-    : _lastWriteTime(0)
 {
+    for (uint8_t r = 0; r < LCD_ROWS; r++) {
+        _lastWriteTime[r] = 0;
+    }
     resetCache();
 }
 
@@ -40,9 +42,9 @@ void LcdDisplay::writeLine(uint8_t row, uint8_t col, const char* text)
         return;
     }
 
-    // Rate-limit LCD writes to LCD_UPDATE_MS minimum interval
+    // Rate-limit per row to LCD_UPDATE_MS minimum interval
     uint32_t now = millis();
-    if (now - _lastWriteTime < LCD_UPDATE_MS) {
+    if (now - _lastWriteTime[row] < LCD_UPDATE_MS) {
         return;
     }
 
@@ -65,7 +67,7 @@ void LcdDisplay::writeLine(uint8_t row, uint8_t col, const char* text)
         }
     }
 
-    _lastWriteTime = now;
+    _lastWriteTime[row] = now;
 }
 
 void LcdDisplay::clearDisplay()
