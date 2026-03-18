@@ -13,15 +13,19 @@
 #ifndef PIN_CONFIG_H
 #define PIN_CONFIG_H
 
-// ── HC-SR04 Ultrasonic Sensor ────────────────────────────────────────
-#define TRIG_PIN  22   // Digital output – 10 µs pulse triggers measurement
-#define ECHO_PIN  23   // Digital input  – high-duration ∝ distance
-
 // ── 4×4 Membrane Keypad ─────────────────────────────────────────────
 //    Row pins are outputs (directly driven by Keypad library)
 //    Col pins are inputs  (read by Keypad library)
-const byte KEYPAD_ROW_PINS[4] = {24, 25, 26, 27};
-const byte KEYPAD_COL_PINS[4] = {28, 29, 30, 31};
+//    Indices 0-3 → rows (D2–D5); indices 4-7 → cols (D6–D8, D10)
+const byte KEYPAD_ROW_PINS[4] = {2, 3, 4, 5};
+const byte KEYPAD_COL_PINS[4] = {6, 7, 8, 10};
+
+// ── I2C Bus Pins ─────────────────────────────────────────────────────
+//    Physical wiring uses A4/A5.  Use a SoftWire-compatible library if
+//    the hardware Wire library does not support custom SDA/SCL on your
+//    board variant.
+#define I2C_SCL_PIN  A4   // SCL physical wire
+#define I2C_SDA_PIN  A5   // SDA physical wire
 
 // ── I2C Addresses ───────────────────────────────────────────────────
 #define PCA9685_ADDR  0x40   // 16-channel PWM servo driver
@@ -39,22 +43,9 @@ const byte KEYPAD_COL_PINS[4] = {28, 29, 30, 31};
 // ── PCA9685 Servo Channels ──────────────────────────────────────────
 //    Channels 0–8: 360° continuous-rotation dispensing servos
 //    Channel  9  : 180° positional trapdoor servo
-#define TRAPDOOR_CHANNEL   9
+#define TRAPDOOR_CHANNEL   7
 #define DISPENSE_CH_MIN    0
-#define DISPENSE_CH_MAX    8
-
-// ── Sensor Detection Thresholds ─────────────────────────────────────
-//    Hatch interior: 175 × 330 mm.  Sensor is mounted at one end,
-//    measuring along the 330 mm length.
-//
-//    Empty hatch  → sensor reads ~330 mm
-//    Bottle inside → sensor reads well below 330 mm
-//
-//    DETECT = 330 / 2 = 165 mm  (bottle occupies at least half the depth)
-//    EXIT   = 330 * 2/3 = 220 mm (55 mm hysteresis gap prevents flicker)
-#define DETECT_THRESHOLD_MM    165   // Object closer than this → detected
-#define EXIT_THRESHOLD_MM      220   // Must exceed this to clear detection
-#define CONSECUTIVE_READINGS   3     // Consecutive readings needed to confirm
+#define DISPENSE_CH_MAX    6
 
 // ── Servo PWM Pulse Widths (microseconds) ───────────────────────────
 //    Trapdoor (180° positional)
@@ -66,7 +57,6 @@ const byte KEYPAD_COL_PINS[4] = {28, 29, 30, 31};
 #define DISPENSE_STOP_US   1500   // Neutral / stopped
 
 // ── Timing Constants ────────────────────────────────────────────────
-#define SENSOR_POLL_MS     100    // HC-SR04 measurement interval
 #define LCD_UPDATE_MS      200    // Minimum LCD refresh interval
 
 #endif // PIN_CONFIG_H

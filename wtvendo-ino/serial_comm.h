@@ -27,7 +27,6 @@
 
 // ── Command Bytes (Pi → Arduino) ────────────────────────────────────
 #define CMD_POLL_EVENTS      0x01
-#define CMD_READ_SENSOR      0x02
 #define CMD_LCD_WRITE        0x03
 #define CMD_LCD_CLEAR        0x04
 #define CMD_SERVO_DISPENSE   0x05
@@ -36,7 +35,6 @@
 
 // ── Event Bytes (Arduino → Pi, via POLL_EVENTS) ────────────────────
 #define EVT_KEYPRESS          0x10
-#define EVT_OBJECT_DETECTED   0x11
 
 // ── Response Codes ──────────────────────────────────────────────────
 #define RESP_ACK   0xFE

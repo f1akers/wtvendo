@@ -12,7 +12,6 @@ Usage:
 
     conn = SerialConnection()
     conn.open()
-    response = conn.send_command(CMD_READ_SENSOR)
     events = conn.poll_events()
     conn.close()
 """
@@ -41,7 +40,6 @@ logger = logging.getLogger(__name__)
 
 # Pi → Arduino commands
 CMD_POLL_EVENTS: int = 0x01
-CMD_READ_SENSOR: int = 0x02
 CMD_LCD_WRITE: int = 0x03
 CMD_LCD_CLEAR: int = 0x04
 CMD_SERVO_DISPENSE: int = 0x05
@@ -50,7 +48,6 @@ CMD_GET_KEYPAD: int = 0x07
 
 # Arduino → Pi events (returned via POLL_EVENTS)
 EVENT_KEYPRESS: int = 0x10
-EVENT_OBJECT_DETECTED: int = 0x11
 
 # Response codes
 ACK: int = 0xFE
@@ -336,8 +333,8 @@ class SerialConnection:
 
         Sends POLL_EVENTS (0x01) and returns the list of events received.
         An ACK with empty payload means no events. An event response
-        (cmd = EVENT_KEYPRESS or EVENT_OBJECT_DETECTED) is returned as a
-        single-element list. Multiple calls may be needed to drain the buffer.
+        (cmd = EVENT_KEYPRESS) is returned as a single-element list.
+        Multiple calls may be needed to drain the buffer.
 
         Returns:
             List of (event_cmd, event_payload) tuples. Empty list if no events
@@ -358,7 +355,7 @@ class SerialConnection:
             return []
 
         # Event response — cmd is the event type
-        if resp_cmd in (EVENT_KEYPRESS, EVENT_OBJECT_DETECTED):
+        if resp_cmd == EVENT_KEYPRESS:
             return [(resp_cmd, resp_payload)]
 
         logger.warning("Unexpected response to POLL_EVENTS: cmd=0x%02X", resp_cmd)

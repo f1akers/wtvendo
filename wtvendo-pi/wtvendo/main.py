@@ -24,6 +24,7 @@ import time
 from wtvendo.classifier import CameraBackend, Classifier, create_camera
 from wtvendo.config import (
     CAMERA_BACKEND,
+    IDLE_SCAN_INTERVAL,
     ITEM_SLOTS,
     POINTS_DISPLAY_DURATION,
 )
@@ -44,7 +45,6 @@ from wtvendo.serial_comm import (
     CMD_SERVO_DISPENSE,
     CMD_SERVO_TRAPDOOR,
     EVENT_KEYPRESS,
-    EVENT_OBJECT_DETECTED,
     NACK,
     SerialConnection,
 )
@@ -130,22 +130,30 @@ def trapdoor_close(conn: SerialConnection) -> bool:
 
 def handle_idle(
     session: Session,
-    conn: SerialConnection,
-    events: list[tuple[int, bytes]],
+    camera: CameraBackend,
+    classifier: Classifier,
     lcd_dirty: list[bool],
+    last_scan_time: list[float],
 ) -> None:
     """
-    IDLE state: wait for bottle detection event.
+    IDLE state: run ML inference every IDLE_SCAN_INTERVAL seconds.
 
-    On EVENT_OBJECT_DETECTED → transition to SCANNING.
+    On bottle detected by YOLO → transition to SCANNING.
     """
-    for event_cmd, event_payload in events:
-        if event_cmd == EVENT_OBJECT_DETECTED:
-            distance = struct.unpack(">H", event_payload)[0] if len(event_payload) >= 2 else 0
-            logger.info("Object detected at %dmm — starting scan", distance)
-            session.start_scan()
-            lcd_dirty[0] = True
-            return
+    now = time.monotonic()
+    if now - last_scan_time[0] < IDLE_SCAN_INTERVAL:
+        return
+    last_scan_time[0] = now
+
+    try:
+        frame = camera.capture()
+    except RuntimeError:
+        return
+
+    if classifier.classify(frame) is not None:
+        logger.info("Bottle detected by ML scan — starting scan")
+        session.start_scan()
+        lcd_dirty[0] = True
 
 
 def handle_scanning(
@@ -246,20 +254,31 @@ def handle_item_select(
     conn: SerialConnection,
     events: list[tuple[int, bytes]],
     lcd_dirty: list[bool],
+    camera: CameraBackend,
+    classifier: Classifier,
+    last_scan_time: list[float],
 ) -> None:
     """
-    ITEM_SELECT state: process keypad events and object detection.
+    ITEM_SELECT state: process keypad events; scan for another bottle via ML.
 
+    - On YOLO bottle detection (every IDLE_SCAN_INTERVAL s) → SCANNING
     - On EVENT_KEYPRESS '1'–'9': validate affordability and start dispensing
-    - On EVENT_OBJECT_DETECTED: student inserts another bottle → SCANNING
     """
-    for event_cmd, event_payload in events:
-        if event_cmd == EVENT_OBJECT_DETECTED:
-            # Student inserts another bottle
-            session.start_scan()
-            lcd_dirty[0] = True
-            return
+    # Check for new bottle insertion via timed ML scan
+    now = time.monotonic()
+    if now - last_scan_time[0] >= IDLE_SCAN_INTERVAL:
+        last_scan_time[0] = now
+        try:
+            frame = camera.capture()
+            if classifier.classify(frame) is not None:
+                logger.info("Another bottle detected — returning to SCANNING")
+                session.start_scan()
+                lcd_dirty[0] = True
+                return
+        except RuntimeError:
+            pass
 
+    for event_cmd, event_payload in events:
         if event_cmd == EVENT_KEYPRESS and len(event_payload) >= 1:
             key_char = chr(event_payload[0])
             session.touch()
@@ -434,6 +453,7 @@ def main_loop(
     """
     lcd_dirty: list[bool] = [False]
     last_lcd_state: SessionState | None = None
+    last_scan_time: list[float] = [0.0]  # Shared idle/item-select scan timer
 
     logger.info("Entering main loop")
 
@@ -447,7 +467,7 @@ def main_loop(
         current_state = session.state
 
         if current_state == SessionState.IDLE:
-            handle_idle(session, conn, events, lcd_dirty)
+            handle_idle(session, camera, classifier, lcd_dirty, last_scan_time)
 
         elif current_state == SessionState.SCANNING:
             handle_scanning(session, conn, camera, classifier, lcd_dirty)
@@ -463,7 +483,9 @@ def main_loop(
             handle_points_display(session, conn, events, lcd_dirty)
 
         elif current_state == SessionState.ITEM_SELECT:
-            handle_item_select(session, conn, events, lcd_dirty)
+            handle_item_select(
+                session, conn, events, lcd_dirty, camera, classifier, last_scan_time
+            )
 
         elif current_state == SessionState.DISPENSING:
             handle_dispensing(session, conn, lcd_dirty)

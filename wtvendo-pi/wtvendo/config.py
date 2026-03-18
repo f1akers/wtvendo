@@ -58,6 +58,9 @@ CAMERA_BACKEND: str = "picamera2"
 INACTIVITY_TIMEOUT: float = 60.0
 """Seconds of inactivity before session auto-resets."""
 
+IDLE_SCAN_INTERVAL: float = 3.0
+"""Seconds between ML camera scans when idle or waiting for another bottle."""
+
 POINTS_DISPLAY_DURATION: float = 3.0
 """Seconds to display points before auto-advancing to item select."""
 

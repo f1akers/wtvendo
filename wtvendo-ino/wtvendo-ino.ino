@@ -9,7 +9,6 @@
  *
  * Module responsibilities:
  *   serial_comm   — Parse inbound packets, build responses, event buffer
- *   sensor        — Non-blocking HC-SR04 distance measurement & detection
  *   servo_control — PCA9685 trapdoor + dispensing servo control
  *   keypad_input  — 4×4 membrane keypad with event auto-enqueue
  *   lcd_display   — 20×4 I2C LCD with dirty-checking cache
@@ -17,19 +16,17 @@
  * Timing budget per loop() iteration (typical):
  *   Serial processing:  ~10 µs  (if bytes available)
  *   Keypad polling:     ~50 µs  (matrix scan)
- *   Sensor update:      ~5 µs   (state check, actual measurement every 100 ms)
  *   Servo update:       ~5 µs   (millis() comparison)
- *   Total:              ~70 µs  (well under 1 ms)
+ *   Total:              ~65 µs  (well under 1 ms)
  *
  * SRAM budget estimate (Arduino Mega 2560 — 8192 bytes):
  *   Event buffer:       16 × 10 = 160 bytes
  *   LCD cache:          4 × 21  = 84 bytes
  *   Packet buffers:     ~70 bytes
- *   Sensor state:       ~20 bytes
  *   Servo state:        ~12 bytes
  *   Keypad:             ~40 bytes
  *   Stack + overhead:   ~300 bytes
- *   Total:              ~686 bytes (~8.4% of 8 KB)
+ *   Total:              ~666 bytes (~8.1% of 8 KB)
  *   ✓ Well under 75% SRAM budget
  *
  * Dependencies: All wtvendo-ino modules, Wire library
@@ -40,13 +37,11 @@
 #include <Wire.h>
 #include "pin_config.h"
 #include "serial_comm.h"
-#include "sensor.h"
 #include "servo_control.h"
 #include "keypad_input.h"
 #include "lcd_display.h"
 
 // ── Module Instances ────────────────────────────────────────────────
-static Sensor       sensor(TRIG_PIN, ECHO_PIN);
 static ServoControl servos;
 static KeypadInput  keypad;
 static LcdDisplay   lcd;
@@ -54,7 +49,6 @@ static LcdDisplay   lcd;
 // ── Forward Declarations ────────────────────────────────────────────
 void processCommand(const Packet& pkt);
 void handlePollEvents();
-void handleReadSensor();
 void handleLcdWrite(const Packet& pkt);
 void handleLcdClear();
 void handleServoDispense(const Packet& pkt);
@@ -89,9 +83,6 @@ void setup()
         Serial.println(F("LCD init failed!"));
     }
 
-    // ── Sensor ──────────────────────────────────────────────────────
-    sensor.init();
-
     // ── Keypad (no explicit init needed — constructor configures) ───
 
     Serial.println(F("WTVendo Arduino initialized"));
@@ -117,10 +108,7 @@ void loop()
     //    Non-blocking scan.  Events auto-enqueued by KeypadInput.
     keypad.update();
 
-    // ── 3. Sensor update (internally rate-limited to 100 ms) ────────
-    sensor.update();
-
-    // ── 4. Servo spin tracking (every iteration) ────────────────────
+    // ── 3. Servo spin tracking (every iteration) ────────────────────
     //    Stops dispensing servo when duration expires.
     servos.update();
 }
@@ -142,10 +130,6 @@ void processCommand(const Packet& pkt)
 
     case CMD_POLL_EVENTS:
         handlePollEvents();
-        break;
-
-    case CMD_READ_SENSOR:
-        handleReadSensor();
         break;
 
     case CMD_LCD_WRITE:
@@ -192,21 +176,6 @@ void handlePollEvents()
     } else {
         sendAck();  // Empty ACK — no events
     }
-}
-
-/**
- * @brief READ_SENSOR (0x02) — Return current HC-SR04 distance.
- *
- * Responds with ACK + 2-byte big-endian uint16 distance in mm.
- * Returns 0xFFFF if no valid reading is available yet.
- */
-void handleReadSensor()
-{
-    uint16_t dist = sensor.getDistanceMM();
-    uint8_t payload[2];
-    payload[0] = (uint8_t)(dist >> 8);    // MSB
-    payload[1] = (uint8_t)(dist & 0xFF);  // LSB
-    sendAck(payload, 2);
 }
 
 /**
@@ -287,10 +256,9 @@ void handleServoDispense(const Packet& pkt)
     // Start dispensing and wait for completion (blocking)
     servos.startDispense(channel, durationMs);
 
-    // Busy-wait for servo to finish — still allow sensor/keypad events
+    // Busy-wait for servo to finish — still allow keypad events
     while (servos.isDispensing()) {
         servos.update();
-        sensor.update();
         keypad.update();
     }
 
