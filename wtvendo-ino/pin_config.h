@@ -31,6 +31,11 @@ const byte KEYPAD_COL_PINS[4] = {28, 29, 30, 31};
 #define SERIAL_BAUD   115200  // Serial1 – Pi ↔ Arduino protocol link
 #define DEBUG_BAUD    9600    // Serial0 – USB debug console
 
+// ── PCA9685 Output Enable ────────────────────────────────────────────
+//    OE is active LOW.  Drive it LOW explicitly so clone boards without a
+//    built-in pull-down resistor don't leave servo outputs floating on boot.
+#define OE_PIN  9
+
 // ── PCA9685 Servo Channels ──────────────────────────────────────────
 //    Channels 0–8: 360° continuous-rotation dispensing servos
 //    Channel  9  : 180° positional trapdoor servo

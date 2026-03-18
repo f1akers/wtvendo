@@ -26,6 +26,11 @@ ServoControl::ServoControl()
 
 void ServoControl::init()
 {
+    // Pull OE LOW before begin() so outputs are enabled as soon as PWM starts.
+    // Active LOW — clone boards without a built-in pull-down need this explicit.
+    pinMode(OE_PIN, OUTPUT);
+    digitalWrite(OE_PIN, LOW);
+
     _pwm.begin();
     _pwm.setPWMFreq(50);  // 50 Hz for standard hobby servos
     delay(10);            // Allow oscillator to stabilize
