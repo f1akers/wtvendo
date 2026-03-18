@@ -13,6 +13,7 @@
 #include "lcd_display.h"
 
 LcdDisplay::LcdDisplay()
+    : _ready(false)
 {
     for (uint8_t r = 0; r < LCD_ROWS; r++) {
         _lastWriteTime[r] = 0;
@@ -32,12 +33,15 @@ bool LcdDisplay::init()
     _lcd.backlight();
     _lcd.clear();
     resetCache();
+    _ready = true;
 
     return true;
 }
 
 void LcdDisplay::writeLine(uint8_t row, uint8_t col, const char* text)
 {
+    if (!_ready) return;
+
     // Validate row/col
     if (row >= LCD_ROWS || col >= LCD_COLS || text == nullptr) {
         return;
@@ -97,6 +101,8 @@ void LcdDisplay::queueWrite(uint8_t row, uint8_t col, const char* text)
 
 void LcdDisplay::update()
 {
+    if (!_ready) return;
+
     uint32_t now = millis();
 
     for (uint8_t row = 0; row < LCD_ROWS; row++) {
@@ -124,17 +130,20 @@ void LcdDisplay::update()
 
 void LcdDisplay::clearDisplay()
 {
+    if (!_ready) return;
     _lcd.clear();
     resetCache();
 }
 
 void LcdDisplay::backlightOn()
 {
+    if (!_ready) return;
     _lcd.backlight();
 }
 
 void LcdDisplay::backlightOff()
 {
+    if (!_ready) return;
     _lcd.noBacklight();
 }
 

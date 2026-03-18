@@ -119,6 +119,11 @@ bool ServoControl::isDispensing() const
     return _dispensing;
 }
 
+bool ServoControl::isBusy() const
+{
+    return _dispensing || _trapdoorSpinning;
+}
+
 // ── PWM Conversion ──────────────────────────────────────────────────
 
 uint16_t ServoControl::microsecondsToPWM(uint16_t us) const

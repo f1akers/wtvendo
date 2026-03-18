@@ -50,7 +50,9 @@ private:
     static const char _keys[4][4];
 
     Keypad _keypad;
-    char   _lastKey;  ///< Most recent key press (0 = none)
+    char     _lastKey;        ///< Most recent key press (0 = none)
+    uint32_t _lastEventMs;    ///< millis() of last enqueued event
+    char     _pendingKey;     ///< Key awaiting confirmation (0 = none)
 };
 
 #endif // KEYPAD_INPUT_H

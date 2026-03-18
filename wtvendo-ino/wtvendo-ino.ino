@@ -66,6 +66,7 @@ void setup()
 
     // ── I2C bus ─────────────────────────────────────────────────────
     Wire.begin();
+    Wire.setWireTimeout(3000, true);  // 3ms timeout, auto-reset on hang
 
     // ── Servo driver ────────────────────────────────────────────────
     servos.init();
@@ -98,13 +99,23 @@ void loop()
         // Invalid packets are already NACK'd by readPacket()
     }
 
-    // ── 2. Keypad polling (every iteration) ─────────────────────────
-    //    Non-blocking scan.  Events auto-enqueued by KeypadInput.
-    keypad.update();
-
-    // ── 3. Servo spin tracking (every iteration) ────────────────────
+    // ── 2. Servo spin tracking (every iteration) ────────────────────
     //    Stops dispensing/trapdoor servo when duration expires.
-    servos.update();
+    {
+        bool wasBusy = servos.isBusy();
+        servos.update();
+        // Flush any noise events that accumulated during servo activity
+        if (wasBusy && !servos.isBusy()) {
+            eventBuffer.clear();
+        }
+    }
+
+    // ── 3. Keypad polling — skipped while servos spin ────────────────
+    //    Motor/PWM noise couples into keypad pins, causing ghost reads.
+    //    Only scan the keypad when no servo is active.
+    if (!servos.isBusy()) {
+        keypad.update();
+    }
 
     // ── 4. LCD queue flush (every iteration) ─────────────────────────
     //    Writes one pending row per call, rate-limited by LCD_UPDATE_MS.

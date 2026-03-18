@@ -68,6 +68,11 @@ public:
      */
     bool isDispensing() const;
 
+    /**
+     * @brief Whether any servo (dispense or trapdoor) is currently active.
+     */
+    bool isBusy() const;
+
 private:
     Adafruit_PWMServoDriver _pwm;
 

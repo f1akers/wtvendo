@@ -110,6 +110,9 @@ private:
     /** @brief Per-row flag: true when queueWrite() stored new content. */
     bool _rowPending[LCD_ROWS];
 
+    /** @brief true after successful init(); all writes are no-ops if false. */
+    bool _ready;
+
     /** @brief Reset all cache entries to spaces. */
     void resetCache();
 };

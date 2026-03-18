@@ -88,6 +88,9 @@ public:
     /** @return true when no events are queued. */
     bool isEmpty() const;
 
+    /** @brief Discard all queued events. */
+    void clear();
+
 private:
     Event _buf[EVENT_BUFFER_SIZE];
     uint8_t _head;  // Next write position
