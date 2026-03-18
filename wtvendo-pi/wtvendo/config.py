@@ -16,7 +16,7 @@ import os
 # Serial Communication
 # ---------------------------------------------------------------------------
 
-SERIAL_PORT: str = os.environ.get("WTVENDO_SERIAL_PORT", "/dev/ttyACM0")
+SERIAL_PORT: str = os.environ.get("WTVENDO_SERIAL_PORT", "/dev/ttyUSB0")
 """Arduino serial port path. Override via WTVENDO_SERIAL_PORT env var."""
 
 BAUD_RATE: int = 115200
