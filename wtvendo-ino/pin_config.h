@@ -17,8 +17,8 @@
 //    Row pins are outputs (directly driven by Keypad library)
 //    Col pins are inputs  (read by Keypad library)
 //    Indices 0-3 → rows (D2–D5); indices 4-7 → cols (D6–D8, D10)
-const byte KEYPAD_ROW_PINS[4] = {2, 3, 4, 5};
-const byte KEYPAD_COL_PINS[4] = {6, 7, 8, 10};
+const byte KEYPAD_ROW_PINS[4] = {10, 8, 7, 6};
+const byte KEYPAD_COL_PINS[4] = {5, 4, 3, 2};
 
 // ── I2C Bus Pins ─────────────────────────────────────────────────────
 //    A4 and A5 are the hardware I2C pins on the Uno.  Wire.begin() uses
@@ -42,16 +42,21 @@ const byte KEYPAD_COL_PINS[4] = {6, 7, 8, 10};
 #define OE_PIN  9
 
 // ── PCA9685 Servo Channels ──────────────────────────────────────────
-//    Channels 0–8: 360° continuous-rotation dispensing servos
-//    Channel  9  : 180° positional trapdoor servo
-#define TRAPDOOR_CHANNEL   7
+//    Channels 0–5: 360° continuous-rotation dispensing servos
+//    Channel  6  : trapdoor servo (currently 360° continuous rotation)
+#define TRAPDOOR_CHANNEL   6
 #define DISPENSE_CH_MIN    0
-#define DISPENSE_CH_MAX    6
+#define DISPENSE_CH_MAX    5
 
 // ── Servo PWM Pulse Widths (microseconds) ───────────────────────────
-//    Trapdoor (180° positional)
-#define TRAPDOOR_OPEN_US   2400   // Fully open position
-#define TRAPDOOR_CLOSE_US  600    // Fully closed position
+//    Trapdoor — 360° continuous rotation (temporary replacement)
+#define TRAPDOOR_FWD_US    1700   // Spin to open
+#define TRAPDOOR_REV_US    1300   // Spin to close
+#define TRAPDOOR_SPIN_MS   500    // Duration of each open/close spin
+
+//    Trapdoor — 180° positional (uncomment when replacement arrives)
+// #define TRAPDOOR_OPEN_US   2400   // Fully open position
+// #define TRAPDOOR_CLOSE_US  600    // Fully closed position
 
 //    Dispensing servos (360° continuous rotation)
 #define DISPENSE_FWD_US    1700   // Forward spin (dispense)

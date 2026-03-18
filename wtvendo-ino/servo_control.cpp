@@ -5,10 +5,9 @@
  * PWM at 50 Hz (20 ms period).  12-bit resolution (4096 ticks per period).
  *
  * Pulse width mapping at 50 Hz:
- *   600 µs  → ~123 ticks  (trapdoor closed)
+ *   1300 µs → ~266 ticks  (continuous servo reverse — trapdoor close)
  *   1500 µs → ~307 ticks  (continuous servo neutral / stop)
- *   1700 µs → ~348 ticks  (continuous servo forward)
- *   2400 µs → ~491 ticks  (trapdoor open)
+ *   1700 µs → ~348 ticks  (continuous servo forward — dispense / trapdoor open)
  *
  * Dependencies: Adafruit PWM Servo Driver Library, Wire, pin_config.h
  */
@@ -21,6 +20,8 @@ ServoControl::ServoControl()
     , _dispChannel(0)
     , _dispStartMs(0)
     , _dispDurationMs(0)
+    , _trapdoorSpinning(false)
+    , _trapdoorStartMs(0)
 {
 }
 
@@ -35,27 +36,43 @@ void ServoControl::init()
     _pwm.setPWMFreq(50);  // 50 Hz for standard hobby servos
     delay(10);            // Allow oscillator to stabilize
 
-    // Ensure trapdoor starts closed
-    trapdoorClose();
+    // Ensure trapdoor starts off (360° mode — no hold needed)
+    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, 4096);
 
-    // Ensure all dispensing channels are stopped
-    uint16_t stopPWM = microsecondsToPWM(DISPENSE_STOP_US);
+    // Fully disable all dispensing channels (no PWM signal)
+    // Using neutral pulse (1500µs) leaves some servos creeping due to
+    // dead-band variation, so we turn the output off entirely.
     for (uint8_t ch = DISPENSE_CH_MIN; ch <= DISPENSE_CH_MAX; ch++) {
-        _pwm.setPWM(ch, 0, stopPWM);
+        _pwm.setPWM(ch, 0, 4096);
     }
 }
 
-// ── Trapdoor ────────────────────────────────────────────────────────
+// ── Trapdoor (360° continuous rotation) ─────────────────────────────
 
 void ServoControl::trapdoorOpen()
 {
-    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_OPEN_US));
+    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_FWD_US));
+    _trapdoorSpinning = true;
+    _trapdoorStartMs  = millis();
 }
 
 void ServoControl::trapdoorClose()
 {
-    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_CLOSE_US));
+    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_REV_US));
+    _trapdoorSpinning = true;
+    _trapdoorStartMs  = millis();
 }
+
+// 180° positional trapdoor (uncomment when replacement arrives):
+// void ServoControl::trapdoorOpen()
+// {
+//     _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_OPEN_US));
+// }
+//
+// void ServoControl::trapdoorClose()
+// {
+//     _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_CLOSE_US));
+// }
 
 // ── Dispensing ──────────────────────────────────────────────────────
 
@@ -77,15 +94,20 @@ void ServoControl::startDispense(uint8_t channel, uint16_t durationMs)
 
 void ServoControl::update()
 {
-    if (!_dispensing) {
-        return;
+    // Stop dispensing servo when duration expires
+    if (_dispensing) {
+        if (millis() - _dispStartMs >= _dispDurationMs) {
+            _pwm.setPWM(_dispChannel, 0, 4096);
+            _dispensing = false;
+        }
     }
 
-    // Check if spin duration has elapsed
-    if (millis() - _dispStartMs >= _dispDurationMs) {
-        // Stop the servo (neutral position)
-        _pwm.setPWM(_dispChannel, 0, microsecondsToPWM(DISPENSE_STOP_US));
-        _dispensing = false;
+    // Stop trapdoor servo when spin duration expires (360° mode)
+    if (_trapdoorSpinning) {
+        if (millis() - _trapdoorStartMs >= TRAPDOOR_SPIN_MS) {
+            _pwm.setPWM(TRAPDOOR_CHANNEL, 0, 4096);
+            _trapdoorSpinning = false;
+        }
     }
 }
 

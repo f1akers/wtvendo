@@ -135,12 +135,9 @@ ITEM_SLOTS: dict[int, tuple[str, int, int]] = {
     4: ("Pen",       35, 1200),
     5: ("Glue Stick",40, 1200),
     6: ("Ruler",     45, 1200),
-    7: ("Marker",    50, 1200),
-    8: ("Crayon Set",60, 1200),
-    9: ("Notebook",  80, 1200),
 }
 """
-Slot number (1–9) → (display_name, point_cost, servo_spin_duration_ms).
+Slot number (1–6) → (display_name, point_cost, servo_spin_duration_ms).
 
 Slots are ordered cheapest-to-most-expensive so keypad key 1 always
 gets the most accessible item. PCA9685 channel = slot_number - 1.

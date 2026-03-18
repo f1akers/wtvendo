@@ -6,8 +6,8 @@
  * timed dispensing (forward spin for N ms then stop) and immediate
  * trapdoor open/close positioning.
  *
- * Channels 0–8: 360° continuous-rotation dispensing servos
- * Channel  9:   180° positional trapdoor servo
+ * Channels 0–5: 360° continuous-rotation dispensing servos
+ * Channel  6:   trapdoor servo (currently 360° continuous rotation)
  *
  * Dependencies: Adafruit PWM Servo Driver Library, pin_config.h
  */
@@ -33,11 +33,15 @@ public:
 
     // ── Trapdoor ────────────────────────────────────────────────────
 
-    /** @brief Move trapdoor to the open position. */
+    /** @brief Spin trapdoor servo to open (360° timed spin). */
     void trapdoorOpen();
 
-    /** @brief Move trapdoor to the closed position. */
+    /** @brief Spin trapdoor servo to close (360° timed spin). */
     void trapdoorClose();
+
+    // 180° positional trapdoor (uncomment when replacement arrives):
+    // void trapdoorOpen();   // → setPWM(TRAPDOOR_CHANNEL, 0, TRAPDOOR_OPEN_US)
+    // void trapdoorClose();  // → setPWM(TRAPDOOR_CHANNEL, 0, TRAPDOOR_CLOSE_US)
 
     // ── Dispensing ──────────────────────────────────────────────────
 
@@ -72,6 +76,10 @@ private:
     uint8_t  _dispChannel;
     uint32_t _dispStartMs;
     uint16_t _dispDurationMs;
+
+    // Active trapdoor spin tracking (360° mode)
+    bool     _trapdoorSpinning;
+    uint32_t _trapdoorStartMs;
 
     /**
      * @brief Convert a pulse width in microseconds to a 12-bit PCA9685
