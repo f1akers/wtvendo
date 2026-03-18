@@ -80,6 +80,7 @@ private:
     // Active trapdoor spin tracking (360° mode)
     bool     _trapdoorSpinning;
     uint32_t _trapdoorStartMs;
+    uint16_t _trapdoorDurationMs;
 
     /**
      * @brief Convert a pulse width in microseconds to a 12-bit PCA9685

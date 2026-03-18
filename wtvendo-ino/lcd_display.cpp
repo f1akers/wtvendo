@@ -16,6 +16,7 @@ LcdDisplay::LcdDisplay()
 {
     for (uint8_t r = 0; r < LCD_ROWS; r++) {
         _lastWriteTime[r] = 0;
+        _rowPending[r] = false;
     }
     resetCache();
 }
@@ -70,6 +71,57 @@ void LcdDisplay::writeLine(uint8_t row, uint8_t col, const char* text)
     _lastWriteTime[row] = now;
 }
 
+void LcdDisplay::queueWrite(uint8_t row, uint8_t col, const char* text)
+{
+    if (row >= LCD_ROWS || col >= LCD_COLS || text == nullptr) {
+        return;
+    }
+
+    // If row isn't already pending, seed from current cache
+    if (!_rowPending[row]) {
+        memcpy(_pendingText[row], _lineCache[row], LCD_COLS + 1);
+    }
+
+    // Overlay new text starting at col
+    uint8_t c = col;
+    for (const char* p = text; *p != '\0' && c < LCD_COLS; p++, c++) {
+        _pendingText[row][c] = *p;
+    }
+    // Pad remainder with spaces
+    for (; c < LCD_COLS; c++) {
+        _pendingText[row][c] = ' ';
+    }
+    _pendingText[row][LCD_COLS] = '\0';
+    _rowPending[row] = true;
+}
+
+void LcdDisplay::update()
+{
+    uint32_t now = millis();
+
+    for (uint8_t row = 0; row < LCD_ROWS; row++) {
+        if (!_rowPending[row]) {
+            continue;
+        }
+        if (now - _lastWriteTime[row] < LCD_UPDATE_MS) {
+            continue;
+        }
+
+        // Dirty-check write — only changed characters hit I2C
+        for (uint8_t c = 0; c < LCD_COLS; c++) {
+            if (_lineCache[row][c] != _pendingText[row][c]) {
+                _lcd.setCursor(c, row);
+                _lcd.print(_pendingText[row][c]);
+                _lineCache[row][c] = _pendingText[row][c];
+            }
+        }
+
+        _lastWriteTime[row] = now;
+        _rowPending[row] = false;
+        break;  // One row per call — spread I2C traffic
+    }
+}
+
 void LcdDisplay::clearDisplay()
 {
     _lcd.clear();
@@ -91,5 +143,8 @@ void LcdDisplay::resetCache()
     for (uint8_t r = 0; r < LCD_ROWS; r++) {
         memset(_lineCache[r], ' ', LCD_COLS);
         _lineCache[r][LCD_COLS] = '\0';
+        memset(_pendingText[r], ' ', LCD_COLS);
+        _pendingText[r][LCD_COLS] = '\0';
+        _rowPending[r] = false;
     }
 }

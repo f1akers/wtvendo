@@ -102,20 +102,13 @@ void loop()
     //    Non-blocking scan.  Events auto-enqueued by KeypadInput.
     keypad.update();
 
-    // ── 3. Push queued events immediately (unsolicited) ─────────────
-    //    Send any buffered events without waiting for Pi to poll.
-    //    This ensures keypad presses are visible on serial even when
-    //    the Pi is not connected or not polling.
-    {
-        Event evt;
-        while (eventBuffer.dequeue(&evt)) {
-            sendEvent(evt.cmd, evt.payload, evt.length);
-        }
-    }
-
-    // ── 4. Servo spin tracking (every iteration) ────────────────────
-    //    Stops dispensing servo when duration expires.
+    // ── 3. Servo spin tracking (every iteration) ────────────────────
+    //    Stops dispensing/trapdoor servo when duration expires.
     servos.update();
+
+    // ── 4. LCD queue flush (every iteration) ─────────────────────────
+    //    Writes one pending row per call, rate-limited by LCD_UPDATE_MS.
+    lcd.update();
 }
 
 // =====================================================================
@@ -212,7 +205,7 @@ void handleLcdWrite(const Packet& pkt)
     memcpy(textBuf, &pkt.payload[2], copyLen);
     textBuf[copyLen] = '\0';
 
-    lcd.writeLine(row, col, textBuf);
+    lcd.queueWrite(row, col, textBuf);
     sendAck();
 }
 
@@ -230,13 +223,12 @@ void handleLcdClear()
  *
  * Payload: [channel(1)] [duration_ms(2, big-endian)]
  *
- * This command blocks until the servo spin completes, then sends ACK.
- * The Pi must wait (with its 200 ms + retries timeout) for the ACK.
- * Typical dispense duration is ~1200 ms.
+ * Non-blocking: starts the servo spin and ACKs immediately.  The servo
+ * is stopped automatically by servos.update() in loop() when the
+ * duration expires.  ACKing immediately avoids Pi-side timeouts (the
+ * 200 ms serial timeout is shorter than typical 1200 ms spin).
  *
- * Note: During the blocking spin, other serial commands are not
- * processed.  This is acceptable because the Pi waits for ACK
- * before sending another command (one-message-in-flight rule).
+ * The isDispensing() guard rejects concurrent requests with ERR_BUSY.
  */
 void handleServoDispense(const Packet& pkt)
 {
@@ -258,15 +250,7 @@ void handleServoDispense(const Packet& pkt)
         return;
     }
 
-    // Start dispensing and wait for completion (blocking)
     servos.startDispense(channel, durationMs);
-
-    // Busy-wait for servo to finish — still allow keypad events
-    while (servos.isDispensing()) {
-        servos.update();
-        keypad.update();
-    }
-
     sendAck();
 }
 

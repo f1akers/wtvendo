@@ -22,6 +22,7 @@ ServoControl::ServoControl()
     , _dispDurationMs(0)
     , _trapdoorSpinning(false)
     , _trapdoorStartMs(0)
+    , _trapdoorDurationMs(0)
 {
 }
 
@@ -52,15 +53,17 @@ void ServoControl::init()
 void ServoControl::trapdoorOpen()
 {
     _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_FWD_US));
-    _trapdoorSpinning = true;
-    _trapdoorStartMs  = millis();
+    _trapdoorSpinning   = true;
+    _trapdoorStartMs    = millis();
+    _trapdoorDurationMs = TRAPDOOR_OPEN_MS;
 }
 
 void ServoControl::trapdoorClose()
 {
     _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_REV_US));
-    _trapdoorSpinning = true;
-    _trapdoorStartMs  = millis();
+    _trapdoorSpinning   = true;
+    _trapdoorStartMs    = millis();
+    _trapdoorDurationMs = TRAPDOOR_CLOSE_MS;
 }
 
 // 180° positional trapdoor (uncomment when replacement arrives):
@@ -104,7 +107,7 @@ void ServoControl::update()
 
     // Stop trapdoor servo when spin duration expires (360° mode)
     if (_trapdoorSpinning) {
-        if (millis() - _trapdoorStartMs >= TRAPDOOR_SPIN_MS) {
+        if (millis() - _trapdoorStartMs >= _trapdoorDurationMs) {
             _pwm.setPWM(TRAPDOOR_CHANNEL, 0, 4096);
             _trapdoorSpinning = false;
         }

@@ -376,37 +376,30 @@ class SerialConnection:
 
     def poll_events(self) -> list[tuple[int, bytes]]:
         """
-        Collect events from the Arduino.
+        Collect events from the Arduino via POLL_EVENTS command.
 
-        Reads any unsolicited event packets the Arduino has already pushed,
-        then sends POLL_EVENTS as a fallback to retrieve any remaining
-        queued events.
+        The Arduino queues events (e.g. keypad presses) in its ring buffer
+        and delivers one per POLL_EVENTS call.  Events are never pushed
+        unsolicited — this preserves the master/slave one-message-in-flight
+        protocol and prevents response interleaving.
 
         Returns:
             List of (event_cmd, event_payload) tuples. Empty list if no events
             or on communication error.
         """
-        # First, collect any events already pushed by the Arduino
-        events = self.read_unsolicited_events()
-
         try:
             resp_cmd, resp_payload = self.send_command(CMD_POLL_EVENTS)
         except (TimeoutError, ConnectionError) as exc:
             logger.warning("poll_events failed: %s", exc)
-            return events
+            return []
 
-        # ACK with empty payload = no events remaining
-        if resp_cmd == ACK and len(resp_payload) == 0:
-            return events
-
-        # ACK with payload shouldn't happen for POLL_EVENTS, but handle it
+        # ACK with empty payload = no events queued
         if resp_cmd == ACK:
-            return events
+            return []
 
         # Event response — cmd is the event type
         if resp_cmd == EVENT_KEYPRESS:
-            events.append((resp_cmd, resp_payload))
-            return events
+            return [(resp_cmd, resp_payload)]
 
         logger.warning("Unexpected response to POLL_EVENTS: cmd=0x%02X", resp_cmd)
-        return events
+        return []

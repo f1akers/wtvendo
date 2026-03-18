@@ -42,20 +42,41 @@ public:
     bool init();
 
     /**
-     * @brief Write a text string at a given row and column.
+     * @brief Write a text string at a given row and column (immediate).
      *
      * Only characters that differ from the cached content are actually
      * written to the LCD, reducing I2C traffic and eliminating flicker.
      * Text is truncated to fit within the 20-column row.
      *
-     * Rate-limited: if called more frequently than LCD_UPDATE_MS the
-     * write is deferred until the next allowed update window.
+     * Use this for setup-time writes only. During loop(), prefer
+     * queueWrite() + update() to avoid blocking serial responses.
      *
      * @param row   Row index (0–3).
      * @param col   Starting column (0–19).
      * @param text  Null-terminated ASCII string.
      */
     void writeLine(uint8_t row, uint8_t col, const char* text);
+
+    /**
+     * @brief Queue a text write for deferred I2C output.
+     *
+     * Stores the text in a pending buffer and returns immediately.
+     * The actual I2C write happens when update() runs in loop().
+     * If a row is overwritten before flushing, the latest text wins.
+     *
+     * @param row   Row index (0–3).
+     * @param col   Starting column (0–19).
+     * @param text  Null-terminated ASCII string.
+     */
+    void queueWrite(uint8_t row, uint8_t col, const char* text);
+
+    /**
+     * @brief Flush one pending queued row to the LCD hardware.
+     *
+     * Call every loop() iteration.  Processes at most one row per call
+     * to spread I2C traffic and avoid blocking other tasks.
+     */
+    void update();
 
     /**
      * @brief Clear the entire display and reset the line cache.
@@ -82,6 +103,12 @@ private:
 
     /** @brief millis() timestamp of the last write per row. */
     uint32_t _lastWriteTime[LCD_ROWS];
+
+    /** @brief Pending row content awaiting I2C flush. */
+    char _pendingText[LCD_ROWS][LCD_COLS + 1];
+
+    /** @brief Per-row flag: true when queueWrite() stored new content. */
+    bool _rowPending[LCD_ROWS];
 
     /** @brief Reset all cache entries to spaces. */
     void resetCache();

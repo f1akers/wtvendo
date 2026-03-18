@@ -52,7 +52,8 @@ const byte KEYPAD_COL_PINS[4] = {5, 4, 3, 2};
 //    Trapdoor — 360° continuous rotation (temporary replacement)
 #define TRAPDOOR_FWD_US    1700   // Spin to open
 #define TRAPDOOR_REV_US    1300   // Spin to close
-#define TRAPDOOR_SPIN_MS   500    // Duration of each open/close spin
+#define TRAPDOOR_OPEN_MS   350    // Open spin duration (tune if overshooting)
+#define TRAPDOOR_CLOSE_MS  350    // Close spin duration
 
 //    Trapdoor — 180° positional (uncomment when replacement arrives)
 // #define TRAPDOOR_OPEN_US   2400   // Fully open position
