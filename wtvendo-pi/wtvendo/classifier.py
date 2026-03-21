@@ -166,7 +166,13 @@ class OpenCVBackend(CameraBackend):
 
         ret, frame = self._cap.read()
         if not ret or frame is None:
+            logger.error(
+                "Failed to capture frame from webcam (ret=%s, frame=%s)",
+                ret,
+                type(frame),
+            )
             raise RuntimeError("Failed to capture frame from webcam")
+        logger.debug("Captured frame: %s", frame.shape)
         # Resize to model input size
         frame = cv2.resize(frame, (IMAGE_SIZE, IMAGE_SIZE))
         return frame  # type: ignore[no-any-return]
