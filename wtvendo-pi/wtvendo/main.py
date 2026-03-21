@@ -580,6 +580,27 @@ def _acquire_lock() -> None:
     atexit.register(lambda: lock_fd.close())
 
 
+def _run_preview() -> None:
+    """Open a live camera preview window. Ctrl+C or 'q' to quit."""
+    import cv2
+
+    logger.info("Starting camera preview (press 'q' to quit)...")
+    camera = _init_camera_with_fallback()
+
+    try:
+        while True:
+            frame = camera.capture()
+            cv2.imshow("WTVendo Camera Preview", frame)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+    except KeyboardInterrupt:
+        pass
+    finally:
+        camera.release()
+        cv2.destroyAllWindows()
+        logger.info("Preview closed")
+
+
 def main() -> None:
     """Application entry point."""
     logging.basicConfig(
@@ -587,6 +608,10 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
+
+    if "--preview" in sys.argv:
+        _run_preview()
+        return
 
     _acquire_lock()
 

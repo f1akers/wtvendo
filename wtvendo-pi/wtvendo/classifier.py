@@ -81,37 +81,56 @@ class PiCamera2Backend(CameraBackend):
         logger.info("PiCamera2 backend released")
 
 
-def _find_camera_by_name(name: str) -> Optional[int]:
+def _find_camera_by_name(name: str) -> list[int]:
     """
-    Find a V4L2 video device whose name contains the given substring.
+    Find V4L2 video capture devices whose name contains the given substring.
 
-    On Linux, reads /sys/class/video4linux/videoN/name for each device.
-    Returns the device index (N) on first match, or None.
-    Non-Linux platforms return None (falls through to index scan).
+    Only returns devices that support VIDEO_CAPTURE (filters out metadata nodes
+    that would flash the camera LED when opened).
+
+    Returns a list of device indices sorted ascending, or empty list.
+    Non-Linux platforms return an empty list (falls through to index scan).
     """
-    import glob
+    import glob as _glob
     import sys
 
     if sys.platform != "linux":
-        return None
+        return []
 
-    for path in sorted(glob.glob("/sys/class/video4linux/video*/name")):
+    matches: list[int] = []
+    for path in sorted(_glob.glob("/sys/class/video4linux/video*/name")):
         try:
             dev_name = open(path, "r").read().strip()
         except OSError:
             continue
-        if name.lower() in dev_name.lower():
-            # Extract index from e.g. /sys/class/video4linux/video2/name
-            idx_str = path.split("/")[-2].replace("video", "")
-            try:
-                idx = int(idx_str)
-            except ValueError:
-                continue
-            logger.info("V4L2 device video%d matches '%s' (name='%s')", idx, name, dev_name)
-            return idx
+        if name.lower() not in dev_name.lower():
+            continue
 
-    logger.info("No V4L2 device matching '%s' found", name)
-    return None
+        idx_str = path.split("/")[-2].replace("video", "")
+        try:
+            idx = int(idx_str)
+        except ValueError:
+            continue
+
+        # Check this is a capture device, not a metadata node.
+        # Metadata nodes lack the "capture" capability in uevent.
+        uevent_path = path.replace("/name", "/device/video4linux/video" + idx_str + "/uevent")
+        try:
+            uevent = open(uevent_path, "r").read()
+        except OSError:
+            uevent = ""
+
+        # Also accept if uevent check is inconclusive — we'll verify with OpenCV
+        if "CAPTURE" not in uevent.upper() and uevent:
+            logger.debug("Skipping video%d — not a capture device", idx)
+            continue
+
+        logger.info("V4L2 device video%d matches '%s' (name='%s')", idx, name, dev_name)
+        matches.append(idx)
+
+    if not matches:
+        logger.info("No V4L2 device matching '%s' found", name)
+    return matches
 
 
 class OpenCVBackend(CameraBackend):
@@ -124,32 +143,43 @@ class OpenCVBackend(CameraBackend):
             self._cap = cv2.VideoCapture(device)
             if not self._cap.isOpened():
                 raise RuntimeError(f"Failed to open camera device {device}")
+            self._warmup()
             logger.info("OpenCV backend initialized on device %d", device)
             return
 
         # Try to find camera by name (e.g. "A4Tech") first
-        named = _find_camera_by_name(CAMERA_DEVICE_NAME)
-        if named is not None:
-            self._cap = cv2.VideoCapture(named)
-            if self._cap.isOpened():
-                logger.info(
-                    "OpenCV backend found '%s' camera on device %d",
-                    CAMERA_DEVICE_NAME, named,
-                )
-                return
-            self._cap.release()
-            logger.warning("Device %d matched '%s' but failed to open", named, CAMERA_DEVICE_NAME)
+        for idx in _find_camera_by_name(CAMERA_DEVICE_NAME):
+            cap = cv2.VideoCapture(idx)
+            if cap.isOpened():
+                ret, _ = cap.read()
+                if ret:
+                    self._cap = cap
+                    self._warmup()
+                    logger.info(
+                        "OpenCV backend found '%s' camera on device %d",
+                        CAMERA_DEVICE_NAME, idx,
+                    )
+                    return
+            cap.release()
 
         # Fallback: scan devices 0–9 for any working camera
         for idx in range(10):
             cap = cv2.VideoCapture(idx)
             if cap.isOpened():
-                self._cap = cap
-                logger.info("OpenCV backend found working camera on device %d", idx)
-                return
+                ret, _ = cap.read()
+                if ret:
+                    self._cap = cap
+                    self._warmup()
+                    logger.info("OpenCV backend found working camera on device %d", idx)
+                    return
             cap.release()
 
         raise RuntimeError("No working camera found on devices 0–9")
+
+    def _warmup(self) -> None:
+        """Read a few frames so the camera stabilizes (auto-exposure, etc.)."""
+        for _ in range(5):
+            self._cap.read()
 
     def capture(self) -> np.ndarray:
         """Capture a single frame from the USB webcam."""
