@@ -150,10 +150,13 @@ def handle_idle(
 
     try:
         frame = camera.capture()
-    except RuntimeError:
+    except RuntimeError as exc:
+        logger.warning("IDLE scan capture failed: %s", exc)
         return
 
-    if classifier.classify(frame) is not None:
+    result = classifier.classify(frame)
+    logger.debug("IDLE scan result: %s", result)
+    if result is not None:
         logger.info("Bottle detected by ML scan — starting scan")
         session.start_scan()
         lcd_dirty[0] = True
@@ -271,13 +274,16 @@ def handle_item_select(
         last_scan_time[0] = now
         try:
             frame = camera.capture()
-            if classifier.classify(frame) is not None:
+            result = classifier.classify(frame)
+            logger.debug("ITEM_SELECT scan result: %s", result)
+            if result is not None:
                 logger.info("Another bottle detected — returning to SCANNING")
                 session.start_scan()
                 lcd_dirty[0] = True
                 return
-        except RuntimeError:
-            pass
+        except RuntimeError as exc:
+            logger.warning("ITEM_SELECT scan capture failed: %s", exc)
+
 
     for event_cmd, event_payload in events:
         if event_cmd == EVENT_KEYPRESS and len(event_payload) >= 1:
