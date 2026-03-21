@@ -82,16 +82,14 @@ class PiCamera2Backend(CameraBackend):
         logger.info("PiCamera2 backend released")
 
 
-def _list_video_devices() -> dict[int, str]:
+def _find_camera_by_name(camera_name: str) -> Optional[int]:
     """
-    List available video devices and their names on Linux.
+    Find a camera device by name, matching against v4l2-ctl output.
 
-    Returns:
-        Dictionary mapping device index to device name/model.
+    Returns the device path (e.g. "/dev/video2") that can be opened by OpenCV,
+    or None if not found.
     """
-    devices = {}
     try:
-        # Use v4l2-ctl to list cameras (available on most Linux systems)
         result = subprocess.run(
             ["v4l2-ctl", "--list-devices"],
             capture_output=True,
@@ -101,21 +99,25 @@ def _list_video_devices() -> dict[int, str]:
         if result.returncode == 0:
             lines = result.stdout.strip().split("\n")
             current_name = None
+            current_devices = []
             for line in lines:
                 line = line.strip()
                 if line and not line.startswith("/dev/"):
-                    # This is a device name line
+                    # Device name line — save previous group
+                    if current_name and camera_name.lower() in current_name.lower():
+                        # Found a matching camera name
+                        return current_devices
                     current_name = line
+                    current_devices = []
                 elif line.startswith("/dev/video"):
-                    # Extract device index and associate with name
-                    dev_match = re.search(r"/dev/video(\d+)", line)
-                    if dev_match and current_name:
-                        idx = int(dev_match.group(1))
-                        devices[idx] = current_name
+                    current_devices.append(line)
+            # Check the last group
+            if current_name and camera_name.lower() in current_name.lower():
+                return current_devices
     except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
         pass
 
-    return devices
+    return None
 
 
 class OpenCVBackend(CameraBackend):
@@ -132,33 +134,50 @@ class OpenCVBackend(CameraBackend):
             logger.info("OpenCV backend initialized on device %d", device)
             return
 
-        # If camera name given, search for it
+        # If camera name given, search for it by trying each /dev/videoN device
         if camera_name:
-            devices = _list_video_devices()
-            for idx, name in devices.items():
-                if camera_name.lower() in name.lower():
-                    cap = cv2.VideoCapture(idx)
+            dev_paths = _find_camera_by_name(camera_name)
+            if dev_paths:
+                # Try each device node associated with this camera
+                for dev_path in dev_paths:
+                    logger.debug("Trying to open %s for '%s'", dev_path, camera_name)
+                    cap = cv2.VideoCapture(dev_path)
                     if cap.isOpened():
-                        self._cap = cap
-                        logger.info(
-                            "OpenCV backend found '%s' on device %d", camera_name, idx
-                        )
-                        return
-                    cap.release()
-            logger.warning(
-                "Camera '%s' not found; falling back to device scan", camera_name
-            )
+                        # Test with a read to make sure it actually works
+                        ret, _ = cap.read()
+                        if ret:
+                            self._cap = cap
+                            logger.info(
+                                "OpenCV backend found '%s' on %s", camera_name, dev_path
+                            )
+                            return
+                        cap.release()
+                    else:
+                        cap.release()
+                logger.warning(
+                    "Camera '%s' found but none of its devices work; falling back",
+                    camera_name,
+                )
+            else:
+                logger.warning(
+                    "Camera '%s' not found in v4l2-ctl output; falling back to device scan",
+                    camera_name,
+                )
 
-        # Scan devices 0–9 for a working camera
+        # Scan /dev/videoN devices for a working camera
         for idx in range(10):
-            cap = cv2.VideoCapture(idx)
+            dev_path = f"/dev/video{idx}"
+            cap = cv2.VideoCapture(dev_path)
             if cap.isOpened():
-                self._cap = cap
-                logger.info("OpenCV backend found working camera on device %d", idx)
-                return
-            cap.release()
+                # Test with a read to ensure it actually works
+                ret, _ = cap.read()
+                if ret:
+                    self._cap = cap
+                    logger.info("OpenCV backend found working camera on %s", dev_path)
+                    return
+                cap.release()
 
-        raise RuntimeError("No working camera found on devices 0–9")
+        raise RuntimeError("No working camera found on /dev/video*")
 
     def capture(self) -> np.ndarray:
         """Capture a single frame from the USB webcam."""
