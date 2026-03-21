@@ -28,13 +28,7 @@ from typing import Optional
 
 import numpy as np
 
-from wtvendo.config import (
-    CAMERA_DEVICE_INDEX,
-    CAMERA_DEVICE_NAME,
-    CONFIDENCE_THRESHOLD,
-    IMAGE_SIZE,
-    MODEL_PATH,
-)
+from wtvendo.config import CAMERA_DEVICE_NAME, CONFIDENCE_THRESHOLD, IMAGE_SIZE, MODEL_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -144,10 +138,6 @@ class OpenCVBackend(CameraBackend):
 
     def __init__(self, device: Optional[int] = None) -> None:
         import cv2
-
-        # Use explicit device if provided, otherwise use hardcoded index from config
-        if device is None and CAMERA_DEVICE_INDEX is not None:
-            device = CAMERA_DEVICE_INDEX
 
         if device is not None:
             self._cap = cv2.VideoCapture(device)

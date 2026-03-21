@@ -11,7 +11,6 @@ Usage:
 """
 
 import os
-from typing import Optional
 
 # ---------------------------------------------------------------------------
 # Serial Communication
@@ -60,17 +59,9 @@ CAMERA_BACKEND: str = os.environ.get("WTVENDO_CAMERA_BACKEND", "opencv")
 """Camera backend: 'opencv' (USB webcam, default) or 'picamera2' (Pi Camera).
 OpenCV is primary; picamera2 is the fallback. Override via WTVENDO_CAMERA_BACKEND."""
 
-CAMERA_DEVICE_INDEX: Optional[int] = 1
-"""Hardcoded /dev/video index for the USB webcam. Set to None to auto-detect.
-Override via WTVENDO_CAMERA_INDEX env var (e.g. "0", "2", or "" for auto)."""
-
-_cam_idx_env = os.environ.get("WTVENDO_CAMERA_INDEX")
-if _cam_idx_env is not None:
-    CAMERA_DEVICE_INDEX = int(_cam_idx_env) if _cam_idx_env.strip() else None
-
 CAMERA_DEVICE_NAME: str = os.environ.get("WTVENDO_CAMERA_NAME", "A4Tech")
 """Substring to match when searching for the USB webcam by device name.
-Only used when CAMERA_DEVICE_INDEX is None. Override via WTVENDO_CAMERA_NAME."""
+Override via WTVENDO_CAMERA_NAME env var."""
 
 # ---------------------------------------------------------------------------
 # Session
