@@ -16,7 +16,10 @@ Run with:
 
 from __future__ import annotations
 
+import atexit
+import fcntl
 import logging
+import os
 import struct
 import sys
 import time
@@ -564,6 +567,20 @@ def _update_lcd_for_state(session: Session, conn: SerialConnection) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _acquire_lock() -> None:
+    """Ensure only one instance of wtvendo is running via a PID file lock."""
+    lock_path = "/tmp/wtvendo.lock"
+    lock_fd = open(lock_path, "w")  # noqa: SIM115
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print("Another wtvendo instance is already running — exiting.", file=sys.stderr)
+        sys.exit(0)
+    lock_fd.write(str(os.getpid()))
+    lock_fd.flush()
+    atexit.register(lambda: lock_fd.close())
+
+
 def main() -> None:
     """Application entry point."""
     logging.basicConfig(
@@ -571,6 +588,8 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
+
+    _acquire_lock()
 
     conn: SerialConnection | None = None
     camera: CameraBackend | None = None
