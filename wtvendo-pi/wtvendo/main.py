@@ -383,24 +383,23 @@ def handle_dispensing(
 
 
 def _init_camera_with_fallback() -> CameraBackend:
-    """Try the configured backend with retries, then fall back to the other."""
-    backends = [CAMERA_BACKEND, "opencv" if CAMERA_BACKEND == "picamera2" else "picamera2"]
-    for backend in backends:
-        logger.info("Trying camera backend: %s", backend)
-        retries = 3 if backend == backends[0] else 1
-        for attempt in range(1, retries + 1):
-            try:
-                camera = create_camera(backend)
-                logger.info("Camera initialized with %s backend", backend)
-                return camera
-            except (RuntimeError, ImportError, ValueError) as exc:
-                logger.warning(
-                    "%s camera init attempt %d/%d failed: %s",
-                    backend, attempt, retries, exc,
-                )
-                if attempt < retries:
-                    time.sleep(2)
-    logger.critical("Could not initialize any camera backend")
+    """Try the configured backend with retries. No picamera2 fallback."""
+    backend = CAMERA_BACKEND
+    retries = 3
+    logger.info("Trying camera backend: %s", backend)
+    for attempt in range(1, retries + 1):
+        try:
+            camera = create_camera(backend)
+            logger.info("Camera initialized with %s backend", backend)
+            return camera
+        except (RuntimeError, ImportError, ValueError) as exc:
+            logger.warning(
+                "%s camera init attempt %d/%d failed: %s",
+                backend, attempt, retries, exc,
+            )
+            if attempt < retries:
+                time.sleep(2)
+    logger.critical("Could not initialize %s camera backend after %d attempts", backend, retries)
     sys.exit(1)
 
 
