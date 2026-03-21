@@ -16,10 +16,15 @@ import os
 # Serial Communication
 # ---------------------------------------------------------------------------
 
-_default_port = "COM4" if os.name == "nt" else "/dev/ttyUSB0"
+_default_port = "COM4" if os.name == "nt" else "/dev/ttyACM0"
 SERIAL_PORT: str = os.environ.get("WTVENDO_SERIAL_PORT", _default_port)
 """Arduino serial port path. Override via WTVENDO_SERIAL_PORT env var.
-Windows default: COM3. Linux/Pi default: /dev/ttyUSB0."""
+Windows default: COM4. Linux/Pi default: /dev/ttyACM0."""
+
+SERIAL_PORT_CANDIDATES: list[str] = (
+    ["COM4", "COM3"] if os.name == "nt" else ["/dev/ttyACM0", "/dev/ttyUSB0"]
+)
+"""Ports to try in order when auto-detecting the Arduino."""
 
 BAUD_RATE: int = 115200
 """UART baud rate — must match Arduino SERIAL_BAUD."""

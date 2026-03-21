@@ -89,7 +89,7 @@ The project follows a constitution at `.specify/memory/constitution.md`. Key rul
 ## Key Configuration
 
 All tunable parameters live in `wtvendo-pi/wtvendo/config.py`:
-- Serial: `/dev/ttyACM0`, 115200 baud
+- Serial: `/dev/ttyACM0` (fallback `/dev/ttyUSB0`), 115200 baud
 - YOLO model: `models/model.pt`, 320×320, confidence 0.5
 - Session inactivity timeout: 60s
 - Bottle point values and item slot costs/durations

@@ -29,6 +29,7 @@ from wtvendo.config import (
     MAX_RETRIES,
     RETRY_DELAY,
     SERIAL_PORT,
+    SERIAL_PORT_CANDIDATES,
     SERIAL_TIMEOUT,
 )
 
@@ -198,28 +199,50 @@ class SerialConnection:
 
     def open(self) -> None:
         """
-        Open the serial connection.
+        Open the serial connection, auto-detecting the port if needed.
+
+        If the configured port fails, tries each candidate in
+        ``SERIAL_PORT_CANDIDATES`` before giving up.
 
         Raises:
-            serial.SerialException: If the port cannot be opened.
+            serial.SerialException: If no candidate port can be opened.
         """
         if self.is_open:
             return
 
-        self._serial = serial.Serial(
-            port=self.port,
-            baudrate=self.baud_rate,
-            timeout=self.timeout,
-            bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_NONE,
-            stopbits=serial.STOPBITS_ONE,
-        )
-        # Pulse DTR low → triggers Uno reset via the DTR capacitor,
-        # then wait 1 s for the bootloader to finish before communicating.
-        self._serial.dtr = False
-        time.sleep(2.0)
-        self._serial.reset_input_buffer()
-        logger.info("Serial connection opened on %s at %d baud", self.port, self.baud_rate)
+        # Build ordered list: configured port first, then candidates
+        ports_to_try: list[str] = [self.port]
+        for candidate in SERIAL_PORT_CANDIDATES:
+            if candidate not in ports_to_try:
+                ports_to_try.append(candidate)
+
+        last_exc: Exception | None = None
+        for port in ports_to_try:
+            try:
+                self._serial = serial.Serial(
+                    port=port,
+                    baudrate=self.baud_rate,
+                    timeout=self.timeout,
+                    bytesize=serial.EIGHTBITS,
+                    parity=serial.PARITY_NONE,
+                    stopbits=serial.STOPBITS_ONE,
+                )
+                # Pulse DTR low → triggers Uno reset via the DTR capacitor,
+                # then wait for the bootloader to finish before communicating.
+                self._serial.dtr = False
+                time.sleep(2.0)
+                self._serial.reset_input_buffer()
+                self.port = port
+                logger.info("Serial connection opened on %s at %d baud", port, self.baud_rate)
+                return
+            except serial.SerialException as exc:
+                logger.info("Port %s unavailable: %s", port, exc)
+                last_exc = exc
+                self._serial = None
+
+        raise serial.SerialException(
+            f"No Arduino found on any port ({', '.join(ports_to_try)})"
+        ) from last_exc
 
     def close(self) -> None:
         """Close the serial connection gracefully."""
