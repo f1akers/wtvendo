@@ -28,7 +28,7 @@ from typing import Optional
 
 import numpy as np
 
-from wtvendo.config import CONFIDENCE_THRESHOLD, IMAGE_SIZE, MODEL_PATH
+from wtvendo.config import CAMERA_DEVICE_NAME, CONFIDENCE_THRESHOLD, IMAGE_SIZE, MODEL_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +81,39 @@ class PiCamera2Backend(CameraBackend):
         logger.info("PiCamera2 backend released")
 
 
+def _find_camera_by_name(name: str) -> Optional[int]:
+    """
+    Find a V4L2 video device whose name contains the given substring.
+
+    On Linux, reads /sys/class/video4linux/videoN/name for each device.
+    Returns the device index (N) on first match, or None.
+    Non-Linux platforms return None (falls through to index scan).
+    """
+    import glob
+    import sys
+
+    if sys.platform != "linux":
+        return None
+
+    for path in sorted(glob.glob("/sys/class/video4linux/video*/name")):
+        try:
+            dev_name = open(path, "r").read().strip()
+        except OSError:
+            continue
+        if name.lower() in dev_name.lower():
+            # Extract index from e.g. /sys/class/video4linux/video2/name
+            idx_str = path.split("/")[-2].replace("video", "")
+            try:
+                idx = int(idx_str)
+            except ValueError:
+                continue
+            logger.info("V4L2 device video%d matches '%s' (name='%s')", idx, name, dev_name)
+            return idx
+
+    logger.info("No V4L2 device matching '%s' found", name)
+    return None
+
+
 class OpenCVBackend(CameraBackend):
     """Camera backend using OpenCV VideoCapture for USB webcams."""
 
@@ -94,7 +127,20 @@ class OpenCVBackend(CameraBackend):
             logger.info("OpenCV backend initialized on device %d", device)
             return
 
-        # Scan devices 0–9 for a working camera
+        # Try to find camera by name (e.g. "A4Tech") first
+        named = _find_camera_by_name(CAMERA_DEVICE_NAME)
+        if named is not None:
+            self._cap = cv2.VideoCapture(named)
+            if self._cap.isOpened():
+                logger.info(
+                    "OpenCV backend found '%s' camera on device %d",
+                    CAMERA_DEVICE_NAME, named,
+                )
+                return
+            self._cap.release()
+            logger.warning("Device %d matched '%s' but failed to open", named, CAMERA_DEVICE_NAME)
+
+        # Fallback: scan devices 0–9 for any working camera
         for idx in range(10):
             cap = cv2.VideoCapture(idx)
             if cap.isOpened():

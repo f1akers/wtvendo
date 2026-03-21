@@ -50,7 +50,7 @@ const byte KEYPAD_COL_PINS[4] = {5, 4, 3, 2};
 
 // ── Servo PWM Pulse Widths (microseconds) ───────────────────────────
 //    Trapdoor — 180° positional
-#define TRAPDOOR_OPEN_US   2400   // Fully open position
+#define TRAPDOOR_OPEN_US   1950   // 75% open position (was 2400)
 #define TRAPDOOR_CLOSE_US  600    // Fully closed position
 
 //    Dispensing servos (360° continuous rotation)
