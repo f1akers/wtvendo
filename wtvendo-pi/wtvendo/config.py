@@ -57,10 +57,10 @@ CONFIDENCE_THRESHOLD: float = 0.5
 
 CAMERA_BACKEND: str = os.environ.get(
     "WTVENDO_CAMERA_BACKEND",
-    "opencv" if os.name == "nt" else "picamera2",
+    "opencv",
 )
 """Camera backend: 'picamera2' (Pi Camera) or 'opencv' (USB webcam).
-Auto-selects 'opencv' on Windows. Override via WTVENDO_CAMERA_BACKEND env var."""
+Defaults to 'opencv'. Override via WTVENDO_CAMERA_BACKEND env var."""
 
 CAMERA_NAME: str | None = os.environ.get("WTVENDO_CAMERA_NAME", None)
 """Optional USB camera name to search for (e.g. 'A4Tech'). Only used with opencv backend.
