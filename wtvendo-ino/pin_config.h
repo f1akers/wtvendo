@@ -49,18 +49,12 @@ const byte KEYPAD_COL_PINS[4] = {5, 4, 3, 2};
 #define DISPENSE_CH_MAX    5
 
 // ── Servo PWM Pulse Widths (microseconds) ───────────────────────────
-//    Trapdoor — 360° continuous rotation (temporary replacement)
-#define TRAPDOOR_FWD_US    1700   // Spin to open
-#define TRAPDOOR_REV_US    1300   // Spin to close
-#define TRAPDOOR_OPEN_MS   350    // Open spin duration (tune if overshooting)
-#define TRAPDOOR_CLOSE_MS  350    // Close spin duration
-
-//    Trapdoor — 180° positional (uncomment when replacement arrives)
-// #define TRAPDOOR_OPEN_US   2400   // Fully open position
-// #define TRAPDOOR_CLOSE_US  600    // Fully closed position
+//    Trapdoor — 180° positional
+#define TRAPDOOR_OPEN_US   2400   // Fully open position
+#define TRAPDOOR_CLOSE_US  600    // Fully closed position
 
 //    Dispensing servos (360° continuous rotation)
-#define DISPENSE_FWD_US    1700   // Forward spin (dispense)
+#define DISPENSE_FWD_US    1300   // Forward spin (dispense, reversed)
 #define DISPENSE_STOP_US   1500   // Neutral / stopped
 
 // ── Timing Constants ────────────────────────────────────────────────

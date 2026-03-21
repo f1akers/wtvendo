@@ -129,12 +129,12 @@ extra reward nudges students to bring those in too.
 #
 # Each slot: (item_name, cost_in_points, spin_duration_ms)
 ITEM_SLOTS: dict[int, tuple[str, int, int]] = {
-    1: ("Pencil",    20, 1200),
-    2: ("Eraser",    25, 1200),
-    3: ("Sharpener", 30, 1200),
-    4: ("Pen",       35, 1200),
-    5: ("Glue Stick",40, 1200),
-    6: ("Ruler",     45, 1200),
+    1: ("Pencil",    20, 5300),
+    2: ("Eraser",    25, 5300),
+    3: ("Sharpener", 30, 5300),
+    4: ("Pen",       35, 5300),
+    5: ("Glue Stick",40, 5300),
+    6: ("Ruler",     45, 5300),
 }
 """
 Slot number (1–6) → (display_name, point_cost, servo_spin_duration_ms).

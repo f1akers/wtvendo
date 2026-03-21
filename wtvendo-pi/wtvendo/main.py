@@ -180,7 +180,6 @@ def handle_scanning(
         logger.error("Camera capture failed: %s", exc)
         session.classification_failed()
         send_lcd_lines(conn, format_classification_failed())
-        _open_close_trapdoor(conn)
         lcd_dirty[0] = True
         return
 
@@ -191,7 +190,6 @@ def handle_scanning(
         logger.info("No bottle detected by YOLO — classification failed")
         session.classification_failed()
         send_lcd_lines(conn, format_classification_failed())
-        _open_close_trapdoor(conn)
         lcd_dirty[0] = True
         return
 
@@ -400,13 +398,21 @@ def startup() -> tuple[SerialConnection, CameraBackend, Classifier, Session]:
         logger.critical("Failed to load YOLO model: %s", exc)
         sys.exit(1)
 
-    # 2. Initialize camera
+    # 2. Initialize camera (retry — previous instance may still hold the device)
     logger.info("Initializing camera backend: %s", CAMERA_BACKEND)
-    try:
-        camera = create_camera(CAMERA_BACKEND)
-    except (RuntimeError, ImportError, ValueError) as exc:
-        logger.critical("Failed to initialize camera: %s", exc)
-        sys.exit(1)
+    camera_retries = 5
+    for attempt in range(1, camera_retries + 1):
+        try:
+            camera = create_camera(CAMERA_BACKEND)
+            break
+        except (RuntimeError, ImportError, ValueError) as exc:
+            logger.warning(
+                "Camera init attempt %d/%d failed: %s", attempt, camera_retries, exc
+            )
+            if attempt == camera_retries:
+                logger.critical("Could not initialize camera after %d attempts", camera_retries)
+                sys.exit(1)
+            time.sleep(2)
 
     # 3. Open serial connection
     logger.info("Opening serial connection...")

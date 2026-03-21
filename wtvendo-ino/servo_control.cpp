@@ -5,9 +5,10 @@
  * PWM at 50 Hz (20 ms period).  12-bit resolution (4096 ticks per period).
  *
  * Pulse width mapping at 50 Hz:
- *   1300 µs → ~266 ticks  (continuous servo reverse — trapdoor close)
+ *   600  µs → ~123 ticks  (trapdoor closed position)
+ *   1300 µs → ~266 ticks  (continuous servo reverse)
  *   1500 µs → ~307 ticks  (continuous servo neutral / stop)
- *   1700 µs → ~348 ticks  (continuous servo forward — dispense / trapdoor open)
+ *   2400 µs → ~491 ticks  (trapdoor open position)
  *
  * Dependencies: Adafruit PWM Servo Driver Library, Wire, pin_config.h
  */
@@ -20,9 +21,7 @@ ServoControl::ServoControl()
     , _dispChannel(0)
     , _dispStartMs(0)
     , _dispDurationMs(0)
-    , _trapdoorSpinning(false)
-    , _trapdoorStartMs(0)
-    , _trapdoorDurationMs(0)
+    , _trapdoorOpen(false)
 {
 }
 
@@ -50,38 +49,23 @@ void ServoControl::init()
     _pwm.sleep();
 }
 
-// ── Trapdoor (360° continuous rotation) ─────────────────────────────
+// ── Trapdoor (180° positional) ──────────────────────────────────────
 
 void ServoControl::trapdoorOpen()
 {
-    _pwm.wakeup();              // Restart oscillator (~500µs stabilize)
-    digitalWrite(OE_PIN, LOW);  // Enable outputs
-    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_FWD_US));
-    _trapdoorSpinning   = true;
-    _trapdoorStartMs    = millis();
-    _trapdoorDurationMs = TRAPDOOR_OPEN_MS;
+    _pwm.wakeup();
+    digitalWrite(OE_PIN, LOW);
+    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_OPEN_US));
+    _trapdoorOpen = true;
 }
 
 void ServoControl::trapdoorClose()
 {
     _pwm.wakeup();
     digitalWrite(OE_PIN, LOW);
-    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_REV_US));
-    _trapdoorSpinning   = true;
-    _trapdoorStartMs    = millis();
-    _trapdoorDurationMs = TRAPDOOR_CLOSE_MS;
+    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_CLOSE_US));
+    _trapdoorOpen = false;
 }
-
-// 180° positional trapdoor (uncomment when replacement arrives):
-// void ServoControl::trapdoorOpen()
-// {
-//     _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_OPEN_US));
-// }
-//
-// void ServoControl::trapdoorClose()
-// {
-//     _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_CLOSE_US));
-// }
 
 // ── Dispensing ──────────────────────────────────────────────────────
 
@@ -114,17 +98,11 @@ void ServoControl::update()
         }
     }
 
-    // Stop trapdoor servo when spin duration expires (360° mode)
-    if (_trapdoorSpinning) {
-        if (millis() - _trapdoorStartMs >= _trapdoorDurationMs) {
-            _pwm.setPWM(TRAPDOOR_CHANNEL, 0, 4096);
-            _trapdoorSpinning = false;
-        }
-    }
-
     // On busy→idle transition: disable outputs and sleep the PCA9685.
     // Sleep stops the 25MHz oscillator — eliminates EMI into keypad lines.
     // Only fires once (not every iteration) to avoid repeated I2C writes.
+    // Note: trapdoor is 180° positional — it holds position via OE staying
+    // LOW while dispensing is active, then parks when OE goes HIGH.
     if (wasBusy && !isBusy()) {
         digitalWrite(OE_PIN, HIGH);
         _pwm.sleep();
@@ -138,7 +116,7 @@ bool ServoControl::isDispensing() const
 
 bool ServoControl::isBusy() const
 {
-    return _dispensing || _trapdoorSpinning;
+    return _dispensing;
 }
 
 // ── PWM Conversion ──────────────────────────────────────────────────
