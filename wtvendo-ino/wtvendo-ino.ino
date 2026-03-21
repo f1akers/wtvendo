@@ -250,6 +250,8 @@ void handleServoDispense(const Packet& pkt)
 
     uint8_t  channel    = pkt.payload[0];
     uint16_t durationMs = ((uint16_t)pkt.payload[1] << 8) | pkt.payload[2];
+    // Direction byte: 0x00 = CCW (default), 0x01 = CW
+    bool clockwise = (pkt.length >= 4) && (pkt.payload[3] == 0x01);
 
     if (channel > DISPENSE_CH_MAX) {
         sendNack(ERR_INVALID_PAYLOAD);
@@ -261,7 +263,7 @@ void handleServoDispense(const Packet& pkt)
         return;
     }
 
-    servos.startDispense(channel, durationMs);
+    servos.startDispense(channel, durationMs, clockwise);
     sendAck();
 }
 

@@ -6,7 +6,8 @@
  *
  * Pulse width mapping at 50 Hz:
  *   600  µs → ~123 ticks  (trapdoor closed position)
- *   1300 µs → ~266 ticks  (continuous servo reverse)
+ *   1300 µs → ~266 ticks  (continuous servo CCW)
+ *   1700 µs → ~348 ticks  (continuous servo CW)
  *   1500 µs → ~307 ticks  (continuous servo neutral / stop)
  *   2400 µs → ~491 ticks  (trapdoor open position)
  *
@@ -69,7 +70,7 @@ void ServoControl::trapdoorClose()
 
 // ── Dispensing ──────────────────────────────────────────────────────
 
-void ServoControl::startDispense(uint8_t channel, uint16_t durationMs)
+void ServoControl::startDispense(uint8_t channel, uint16_t durationMs, bool clockwise)
 {
     // Validate channel range
     if (channel > DISPENSE_CH_MAX) {
@@ -81,9 +82,11 @@ void ServoControl::startDispense(uint8_t channel, uint16_t durationMs)
     _dispStartMs    = millis();
     _dispensing     = true;
 
+    uint16_t pulseUs = clockwise ? DISPENSE_CW_US : DISPENSE_CCW_US;
+
     _pwm.wakeup();
     digitalWrite(OE_PIN, LOW);
-    _pwm.setPWM(channel, 0, microsecondsToPWM(DISPENSE_FWD_US));
+    _pwm.setPWM(channel, 0, microsecondsToPWM(pulseUs));
 }
 
 void ServoControl::update()

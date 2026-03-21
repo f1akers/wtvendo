@@ -289,7 +289,7 @@ def handle_item_select(
                     logger.warning("Invalid slot %d", slot)
                     continue
 
-                item_name, cost, _ = ITEM_SLOTS[slot]
+                item_name, cost, _, _ = ITEM_SLOTS[slot]
 
                 if not session.can_afford(slot):
                     logger.info(
@@ -334,14 +334,16 @@ def handle_dispensing(
         lcd_dirty[0] = True
         return
 
-    item_name, _, duration_ms = ITEM_SLOTS[slot]
+    item_name, _, duration_ms, direction = ITEM_SLOTS[slot]
 
     # Show dispensing message
     send_lcd_lines(conn, format_dispensing(item_name))
 
-    # Build payload: channel(1 byte) + duration_ms(2 bytes big-endian)
+    # Build payload: channel(1) + duration_ms(2, big-endian) + direction(1)
+    # direction: 0x00 = CCW (default), 0x01 = CW
     channel = slot - 1  # Slot 1–9 → channel 0–8
-    payload = struct.pack(">BH", channel, duration_ms)
+    dir_byte = 0x01 if direction == "cw" else 0x00
+    payload = struct.pack(">BHB", channel, duration_ms, dir_byte)
 
     try:
         resp_cmd, resp_payload = conn.send_command(CMD_SERVO_DISPENSE, payload)

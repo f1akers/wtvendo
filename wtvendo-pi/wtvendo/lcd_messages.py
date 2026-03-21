@@ -96,7 +96,7 @@ def format_item_menu(points: int) -> list[str]:
     # Collect affordable items for display hint
     affordable = []
     for slot_num in sorted(ITEM_SLOTS.keys()):
-        name, cost, _ = ITEM_SLOTS[slot_num]
+        name, cost, _, _ = ITEM_SLOTS[slot_num]
         if points >= cost:
             affordable.append(f"{slot_num}:{name[:6]}={cost}")
 

@@ -42,15 +42,16 @@ public:
     // ── Dispensing ──────────────────────────────────────────────────
 
     /**
-     * @brief Start a dispensing servo spinning forward.
+     * @brief Start a dispensing servo spinning.
      *
      * Non-blocking — records start time and duration.  Call update()
      * every loop() iteration to automatically stop when elapsed.
      *
      * @param channel      PCA9685 channel (0–8).
      * @param durationMs   How long to spin in milliseconds.
+     * @param clockwise    true = CW (1700µs), false = CCW (1300µs).
      */
-    void startDispense(uint8_t channel, uint16_t durationMs);
+    void startDispense(uint8_t channel, uint16_t durationMs, bool clockwise = false);
 
     /**
      * @brief Check elapsed time and stop servo when duration expires.

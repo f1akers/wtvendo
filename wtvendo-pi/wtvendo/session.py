@@ -111,7 +111,7 @@ class Session:
         """
         if slot not in ITEM_SLOTS:
             return False
-        _, cost, _ = ITEM_SLOTS[slot]
+        _, cost, _, _ = ITEM_SLOTS[slot]
         return self.points >= cost
 
     def deduct_points(self, slot: int) -> int:
@@ -129,7 +129,7 @@ class Session:
         """
         if slot not in ITEM_SLOTS:
             raise ValueError(f"Invalid slot number: {slot}")
-        _, cost, _ = ITEM_SLOTS[slot]
+        _, cost, _, _ = ITEM_SLOTS[slot]
         if self.points < cost:
             raise ValueError(
                 f"Insufficient points: have {self.points}, need {cost}"

@@ -54,7 +54,8 @@ const byte KEYPAD_COL_PINS[4] = {5, 4, 3, 2};
 #define TRAPDOOR_CLOSE_US  600    // Fully closed position
 
 //    Dispensing servos (360° continuous rotation)
-#define DISPENSE_FWD_US    1300   // Forward spin (dispense, reversed)
+#define DISPENSE_CCW_US    1300   // Counterclockwise spin (below neutral)
+#define DISPENSE_CW_US     1700   // Clockwise spin (above neutral)
 #define DISPENSE_STOP_US   1500   // Neutral / stopped
 
 // ── Timing Constants ────────────────────────────────────────────────
