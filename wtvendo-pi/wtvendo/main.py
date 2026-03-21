@@ -377,6 +377,28 @@ def handle_dispensing(
 # ---------------------------------------------------------------------------
 
 
+def _init_camera_with_fallback() -> CameraBackend:
+    """Try the configured backend with retries, then fall back to the other."""
+    backends = [CAMERA_BACKEND, "opencv" if CAMERA_BACKEND == "picamera2" else "picamera2"]
+    for backend in backends:
+        logger.info("Trying camera backend: %s", backend)
+        retries = 3 if backend == backends[0] else 1
+        for attempt in range(1, retries + 1):
+            try:
+                camera = create_camera(backend)
+                logger.info("Camera initialized with %s backend", backend)
+                return camera
+            except (RuntimeError, ImportError, ValueError) as exc:
+                logger.warning(
+                    "%s camera init attempt %d/%d failed: %s",
+                    backend, attempt, retries, exc,
+                )
+                if attempt < retries:
+                    time.sleep(2)
+    logger.critical("Could not initialize any camera backend")
+    sys.exit(1)
+
+
 def startup() -> tuple[SerialConnection, CameraBackend, Classifier, Session]:
     """
     Initialize all system components.
@@ -398,21 +420,8 @@ def startup() -> tuple[SerialConnection, CameraBackend, Classifier, Session]:
         logger.critical("Failed to load YOLO model: %s", exc)
         sys.exit(1)
 
-    # 2. Initialize camera (retry — previous instance may still hold the device)
-    logger.info("Initializing camera backend: %s", CAMERA_BACKEND)
-    camera_retries = 5
-    for attempt in range(1, camera_retries + 1):
-        try:
-            camera = create_camera(CAMERA_BACKEND)
-            break
-        except (RuntimeError, ImportError, ValueError) as exc:
-            logger.warning(
-                "Camera init attempt %d/%d failed: %s", attempt, camera_retries, exc
-            )
-            if attempt == camera_retries:
-                logger.critical("Could not initialize camera after %d attempts", camera_retries)
-                sys.exit(1)
-            time.sleep(2)
+    # 2. Initialize camera (retry primary, then fall back to other backend)
+    camera = _init_camera_with_fallback()
 
     # 3. Open serial connection
     logger.info("Opening serial connection...")
