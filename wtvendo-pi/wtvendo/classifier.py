@@ -84,13 +84,26 @@ class PiCamera2Backend(CameraBackend):
 class OpenCVBackend(CameraBackend):
     """Camera backend using OpenCV VideoCapture for USB webcams."""
 
-    def __init__(self, device: int = 2) -> None:
+    def __init__(self, device: Optional[int] = None) -> None:
         import cv2
 
-        self._cap = cv2.VideoCapture(device)
-        if not self._cap.isOpened():
-            raise RuntimeError(f"Failed to open camera device {device}")
-        logger.info("OpenCV backend initialized on device %d", device)
+        if device is not None:
+            self._cap = cv2.VideoCapture(device)
+            if not self._cap.isOpened():
+                raise RuntimeError(f"Failed to open camera device {device}")
+            logger.info("OpenCV backend initialized on device %d", device)
+            return
+
+        # Scan devices 0–9 for a working camera
+        for idx in range(10):
+            cap = cv2.VideoCapture(idx)
+            if cap.isOpened():
+                self._cap = cap
+                logger.info("OpenCV backend found working camera on device %d", idx)
+                return
+            cap.release()
+
+        raise RuntimeError("No working camera found on devices 0–9")
 
     def capture(self) -> np.ndarray:
         """Capture a single frame from the USB webcam."""
