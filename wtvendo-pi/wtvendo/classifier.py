@@ -24,6 +24,7 @@ import hashlib
 import logging
 import os
 import re
+import subprocess
 from typing import Optional
 
 import numpy as np
@@ -81,18 +82,72 @@ class PiCamera2Backend(CameraBackend):
         logger.info("PiCamera2 backend released")
 
 
+def _list_video_devices() -> dict[int, str]:
+    """
+    List available video devices and their names on Linux.
+
+    Returns:
+        Dictionary mapping device index to device name/model.
+    """
+    devices = {}
+    try:
+        # Use v4l2-ctl to list cameras (available on most Linux systems)
+        result = subprocess.run(
+            ["v4l2-ctl", "--list-devices"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            lines = result.stdout.strip().split("\n")
+            current_name = None
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith("/dev/"):
+                    # This is a device name line
+                    current_name = line
+                elif line.startswith("/dev/video"):
+                    # Extract device index and associate with name
+                    dev_match = re.search(r"/dev/video(\d+)", line)
+                    if dev_match and current_name:
+                        idx = int(dev_match.group(1))
+                        devices[idx] = current_name
+    except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+        pass
+
+    return devices
+
+
 class OpenCVBackend(CameraBackend):
     """Camera backend using OpenCV VideoCapture for USB webcams."""
 
-    def __init__(self, device: Optional[int] = None) -> None:
+    def __init__(self, device: Optional[int] = None, camera_name: Optional[str] = None) -> None:
         import cv2
 
+        # If explicit device given, use it
         if device is not None:
             self._cap = cv2.VideoCapture(device)
             if not self._cap.isOpened():
                 raise RuntimeError(f"Failed to open camera device {device}")
             logger.info("OpenCV backend initialized on device %d", device)
             return
+
+        # If camera name given, search for it
+        if camera_name:
+            devices = _list_video_devices()
+            for idx, name in devices.items():
+                if camera_name.lower() in name.lower():
+                    cap = cv2.VideoCapture(idx)
+                    if cap.isOpened():
+                        self._cap = cap
+                        logger.info(
+                            "OpenCV backend found '%s' on device %d", camera_name, idx
+                        )
+                        return
+                    cap.release()
+            logger.warning(
+                "Camera '%s' not found; falling back to device scan", camera_name
+            )
 
         # Scan devices 0–9 for a working camera
         for idx in range(10):
@@ -122,12 +177,16 @@ class OpenCVBackend(CameraBackend):
         logger.info("OpenCV backend released")
 
 
-def create_camera(backend_name: str = "picamera2") -> CameraBackend:
+def create_camera(
+    backend_name: str = "picamera2", camera_name: Optional[str] = None
+) -> CameraBackend:
     """
     Factory function to create the appropriate camera backend.
 
     Args:
         backend_name: 'picamera2' for Pi Camera, 'opencv' for USB webcam.
+        camera_name: Optional name to search for (e.g., 'A4Tech'). Only used
+                     with 'opencv' backend.
 
     Returns:
         A CameraBackend instance.
@@ -139,7 +198,7 @@ def create_camera(backend_name: str = "picamera2") -> CameraBackend:
     if name == "picamera2":
         return PiCamera2Backend()
     elif name == "opencv":
-        return OpenCVBackend()
+        return OpenCVBackend(camera_name=camera_name)
     else:
         raise ValueError(
             f"Unknown camera backend '{backend_name}'. Use 'picamera2' or 'opencv'."

@@ -27,6 +27,7 @@ import time
 from wtvendo.classifier import CameraBackend, Classifier, create_camera
 from wtvendo.config import (
     CAMERA_BACKEND,
+    CAMERA_NAME,
     IDLE_SCAN_INTERVAL,
     ITEM_SLOTS,
     POINTS_DISPLAY_DURATION,
@@ -390,7 +391,9 @@ def _init_camera_with_fallback() -> CameraBackend:
         retries = 3 if backend == backends[0] else 1
         for attempt in range(1, retries + 1):
             try:
-                camera = create_camera(backend)
+                # Pass CAMERA_NAME only for opencv backend
+                camera_name = CAMERA_NAME if backend == "opencv" else None
+                camera = create_camera(backend, camera_name=camera_name)
                 logger.info("Camera initialized with %s backend", backend)
                 return camera
             except (RuntimeError, ImportError, ValueError) as exc:
