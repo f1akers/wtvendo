@@ -55,9 +55,9 @@ CONFIDENCE_THRESHOLD: float = 0.5
 # Camera
 # ---------------------------------------------------------------------------
 
-CAMERA_BACKEND: str = os.environ.get("WTVENDO_CAMERA_BACKEND", "opencv")
-"""Camera backend: 'opencv' (USB webcam, default) or 'picamera2' (Pi Camera).
-OpenCV is primary; picamera2 is the fallback. Override via WTVENDO_CAMERA_BACKEND."""
+CAMERA_BACKEND: str = os.environ.get("WTVENDO_CAMERA_BACKEND", "picamera2")
+"""Camera backend: 'picamera2' (Pi Camera, default) or 'opencv' (USB webcam).
+PiCamera2 is primary; OpenCV is the fallback. Override via WTVENDO_CAMERA_BACKEND."""
 
 CAMERA_DEVICE_NAME: str = os.environ.get("WTVENDO_CAMERA_NAME", "A4Tech")
 """Substring to match when searching for the USB webcam by device name.

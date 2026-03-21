@@ -136,7 +136,7 @@ def _find_camera_by_name(name: str) -> list[int]:
 class OpenCVBackend(CameraBackend):
     """Camera backend using OpenCV VideoCapture for USB webcams."""
 
-    def __init__(self, device: Optional[int] = None) -> None:
+    def __init__(self, device: Optional[int] = 0) -> None:
         import cv2
 
         if device is not None:
