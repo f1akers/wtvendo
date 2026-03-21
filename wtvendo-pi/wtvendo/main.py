@@ -384,13 +384,12 @@ def handle_dispensing(
 
 
 def _init_camera_with_fallback() -> CameraBackend:
-    """Try the configured backend. Don't fall back to picamera2 if USB camera unavailable."""
-    # Only try the configured backend; don't try picamera2 as fallback
-    # (this system has a USB camera, not a Pi Camera Module)
-    backends = [CAMERA_BACKEND]
+    """Try the configured backend with retries, then fall back to the other."""
+    backends = [CAMERA_BACKEND, "opencv" if CAMERA_BACKEND == "picamera2" else "picamera2"]
     for backend in backends:
         logger.info("Trying camera backend: %s", backend)
-        retries = 3
+        # Try primary backend up to 3 times; fallback backend only once
+        retries = 3 if backend == backends[0] else 1
         for attempt in range(1, retries + 1):
             try:
                 # Pass CAMERA_NAME only for opencv backend
