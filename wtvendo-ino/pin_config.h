@@ -50,13 +50,17 @@ const byte KEYPAD_COL_PINS[4] = {5, 4, 3, 2};
 
 // ── Servo PWM Pulse Widths (microseconds) ───────────────────────────
 //    Trapdoor — 180° positional
-#define TRAPDOOR_OPEN_US   1950   // 75% open position (was 2400)
-#define TRAPDOOR_CLOSE_US  500    // Fully closed position
+#define TRAPDOOR_OPEN_US   2400  // Open position
+#define TRAPDOOR_CLOSE_US  850    // Fully closed position
 
 //    Dispensing servos (360° continuous rotation)
 #define DISPENSE_CCW_US    1300   // Counterclockwise spin (below neutral)
 #define DISPENSE_CW_US     1700   // Clockwise spin (above neutral)
 #define DISPENSE_STOP_US   1500   // Neutral / stopped
+
+// ── Trapdoor Sweep Timing ──────────────────────────────────────────
+#define TRAPDOOR_STEP_US   20     // Microseconds per sweep step
+#define TRAPDOOR_STEP_MS   15     // Milliseconds between sweep steps
 
 // ── Timing Constants ────────────────────────────────────────────────
 #define LCD_UPDATE_MS      200    // Minimum LCD refresh interval

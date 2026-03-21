@@ -23,6 +23,10 @@ ServoControl::ServoControl()
     , _dispStartMs(0)
     , _dispDurationMs(0)
     , _trapdoorOpen(false)
+    , _trapdoorSweeping(false)
+    , _tdCurrentUs(TRAPDOOR_CLOSE_US)
+    , _tdTargetUs(TRAPDOOR_CLOSE_US)
+    , _tdLastStepMs(0)
 {
 }
 
@@ -50,22 +54,29 @@ void ServoControl::init()
     _pwm.sleep();
 }
 
-// ── Trapdoor (180° positional) ──────────────────────────────────────
+// ── Trapdoor (180° positional, gradual sweep) ──────────────────────
 
 void ServoControl::trapdoorOpen()
 {
     _pwm.wakeup();
     digitalWrite(OE_PIN, LOW);
-    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_OPEN_US));
-    _trapdoorOpen = true;
+    _tdTargetUs      = TRAPDOOR_OPEN_US;
+    _tdLastStepMs    = millis();
+    _trapdoorSweeping = true;
+    _trapdoorOpen    = true;
+    // Write current position immediately so the servo is driven
+    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(_tdCurrentUs));
 }
 
 void ServoControl::trapdoorClose()
 {
     _pwm.wakeup();
     digitalWrite(OE_PIN, LOW);
-    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(TRAPDOOR_CLOSE_US));
-    _trapdoorOpen = false;
+    _tdTargetUs      = TRAPDOOR_CLOSE_US;
+    _tdLastStepMs    = millis();
+    _trapdoorSweeping = true;
+    _trapdoorOpen    = false;
+    _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(_tdCurrentUs));
 }
 
 // ── Dispensing ──────────────────────────────────────────────────────
@@ -101,11 +112,26 @@ void ServoControl::update()
         }
     }
 
+    // Step trapdoor toward target position
+    if (_trapdoorSweeping) {
+        uint32_t now = millis();
+        if (now - _tdLastStepMs >= TRAPDOOR_STEP_MS) {
+            _tdLastStepMs = now;
+            if (_tdCurrentUs < _tdTargetUs) {
+                _tdCurrentUs += TRAPDOOR_STEP_US;
+                if (_tdCurrentUs > _tdTargetUs) _tdCurrentUs = _tdTargetUs;
+            } else if (_tdCurrentUs > _tdTargetUs) {
+                _tdCurrentUs -= TRAPDOOR_STEP_US;
+                if (_tdCurrentUs < _tdTargetUs) _tdCurrentUs = _tdTargetUs;
+            }
+            _pwm.setPWM(TRAPDOOR_CHANNEL, 0, microsecondsToPWM(_tdCurrentUs));
+            if (_tdCurrentUs == _tdTargetUs) {
+                _trapdoorSweeping = false;
+            }
+        }
+    }
+
     // On busy→idle transition: disable outputs and sleep the PCA9685.
-    // Sleep stops the 25MHz oscillator — eliminates EMI into keypad lines.
-    // Only fires once (not every iteration) to avoid repeated I2C writes.
-    // Note: trapdoor is 180° positional — it holds position via OE staying
-    // LOW while dispensing is active, then parks when OE goes HIGH.
     if (wasBusy && !isBusy()) {
         digitalWrite(OE_PIN, HIGH);
         _pwm.sleep();
@@ -119,7 +145,7 @@ bool ServoControl::isDispensing() const
 
 bool ServoControl::isBusy() const
 {
-    return _dispensing;
+    return _dispensing || _trapdoorSweeping;
 }
 
 // ── PWM Conversion ──────────────────────────────────────────────────

@@ -33,10 +33,10 @@ public:
 
     // ── Trapdoor ────────────────────────────────────────────────────
 
-    /** @brief Move trapdoor servo to open position (180°). */
+    /** @brief Begin gradual sweep to open position. Non-blocking. */
     void trapdoorOpen();
 
-    /** @brief Move trapdoor servo to closed position (180°). */
+    /** @brief Begin gradual sweep to closed position. Non-blocking. */
     void trapdoorClose();
 
     // ── Dispensing ──────────────────────────────────────────────────
@@ -79,8 +79,12 @@ private:
     uint32_t _dispStartMs;
     uint16_t _dispDurationMs;
 
-    // Trapdoor state tracking (180° positional mode)
-    bool _trapdoorOpen;
+    // Trapdoor sweep state (non-blocking gradual movement)
+    bool     _trapdoorOpen;
+    bool     _trapdoorSweeping;
+    uint16_t _tdCurrentUs;
+    uint16_t _tdTargetUs;
+    uint32_t _tdLastStepMs;
 
     /**
      * @brief Convert a pulse width in microseconds to a 12-bit PCA9685
