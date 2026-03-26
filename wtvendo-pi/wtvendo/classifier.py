@@ -3,8 +3,8 @@ YOLO bottle classifier module for WTVendo.
 
 Provides camera abstraction and YOLO inference for classifying bottle types.
 Supports picamera2 (Pi Camera) and OpenCV (USB webcam) backends via a factory
-function. The Classifier class loads a YOLO model with SHA256 verification and
-runs single-frame detection returning the top class name and confidence.
+function. The Classifier class loads a YOLO NCNN model and runs single-frame
+detection returning the top class name and confidence.
 
 Usage:
     from wtvendo.classifier import Classifier, create_camera
@@ -20,10 +20,8 @@ Usage:
 from __future__ import annotations
 
 import abc
-import hashlib
 import logging
 import os
-import re
 from typing import Optional
 
 import numpy as np
@@ -223,101 +221,26 @@ def create_camera(backend_name: str = "picamera2") -> CameraBackend:
 
 
 # ---------------------------------------------------------------------------
-# SHA256 Verification
-# ---------------------------------------------------------------------------
-
-
-def _read_expected_hash(readme_path: str) -> Optional[str]:
-    """
-    Read the SHA256 hash from models/README.md.
-
-    Scans for a line containing 'SHA256' followed by a 64-char hex string.
-
-    Args:
-        readme_path: Path to the README.md file.
-
-    Returns:
-        Lowercase hex digest string, or None if not found or placeholder.
-    """
-    if not os.path.isfile(readme_path):
-        return None
-
-    with open(readme_path, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    # Match a 64-character hex string on a line containing SHA256
-    match = re.search(r"SHA256.*?`([a-fA-F0-9]{64})`", content)
-    if match:
-        return match.group(1).lower()
-
-    return None
-
-
-def _compute_file_hash(file_path: str) -> str:
-    """
-    Compute SHA256 hash of a file.
-
-    Args:
-        file_path: Path to the file to hash.
-
-    Returns:
-        Lowercase hex digest string.
-    """
-    sha256 = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            sha256.update(chunk)
-    return sha256.hexdigest()
-
-
-def verify_model_hash(model_path: str) -> bool:
-    """
-    Verify the YOLO model file against the SHA256 hash in models/README.md.
-
-    Args:
-        model_path: Path to the model .pt file.
-
-    Returns:
-        True if hash matches or no expected hash is available (placeholder).
-        False if hash mismatch.
-    """
-    readme_path = os.path.join(os.path.dirname(model_path), "README.md")
-    expected = _read_expected_hash(readme_path)
-
-    if expected is None:
-        logger.warning(
-            "No SHA256 hash found in %s — skipping verification", readme_path
-        )
-        return True
-
-    actual = _compute_file_hash(model_path)
-    if actual == expected:
-        logger.info("Model SHA256 verified: %s", actual[:16] + "...")
-        return True
-    else:
-        logger.error(
-            "Model SHA256 MISMATCH! Expected %s..., got %s...",
-            expected[:16],
-            actual[:16],
-        )
-        return False
-
-
-# ---------------------------------------------------------------------------
 # Classifier
 # ---------------------------------------------------------------------------
+
+
+def _to_numpy(data: object) -> np.ndarray:
+    """Convert ultralytics result data to numpy, handling both tensor and array."""
+    if isinstance(data, np.ndarray):
+        return data
+    return data.cpu().numpy()  # type: ignore[union-attr]
 
 
 class Classifier:
     """
     YOLO-based bottle classifier.
 
-    Loads a YOLO model from disk, verifies its SHA256 hash, and provides
-    single-frame classification returning the top detection's class name
-    and confidence.
+    Loads a YOLO NCNN model directory and provides single-frame classification
+    returning the top detection's class name and confidence.
 
     Attributes:
-        model_path: Filesystem path to the YOLO model weights.
+        model_path: Filesystem path to the YOLO NCNN model directory.
         image_size: Input resolution for inference (square).
         confidence_threshold: Minimum confidence to accept a detection.
     """
@@ -335,21 +258,15 @@ class Classifier:
 
     def load(self) -> None:
         """
-        Load the YOLO model from disk with SHA256 verification.
+        Load the YOLO NCNN model from disk.
 
         Raises:
-            FileNotFoundError: If model file does not exist.
-            RuntimeError: If SHA256 hash verification fails.
+            FileNotFoundError: If model directory does not exist.
         """
-        if not os.path.isfile(self.model_path):
+        if not os.path.isdir(self.model_path):
             raise FileNotFoundError(
-                f"YOLO model not found at {self.model_path}. "
-                "See models/README.md for download instructions."
-            )
-
-        if not verify_model_hash(self.model_path):
-            raise RuntimeError(
-                f"Model SHA256 verification failed for {self.model_path}"
+                f"YOLO NCNN model directory not found at {self.model_path}. "
+                "See models/README.md for setup instructions."
             )
 
         from ultralytics import YOLO  # type: ignore[import-untyped]
@@ -393,8 +310,8 @@ class Classifier:
             return None
 
         # Get the detection with highest confidence
-        confidences = result.boxes.conf.cpu().numpy()
-        class_ids = result.boxes.cls.cpu().numpy().astype(int)
+        confidences = _to_numpy(result.boxes.conf)
+        class_ids = _to_numpy(result.boxes.cls).astype(int)
 
         best_idx = int(confidences.argmax())
         best_conf = float(confidences[best_idx])

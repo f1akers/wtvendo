@@ -4,12 +4,10 @@
 
 | Field     | Value                                    |
 | --------- | ---------------------------------------- |
-| Name      | `yolo26n.pt`                             |
-| Framework | YOLOv8 Nano (ultralytics)                |
+| Name      | `best_ncnn_model`                        |
+| Framework | YOLOv8 Nano (ultralytics, NCNN export)   |
 | Mode      | Detection                                |
 | Version   | Custom-trained (26 epochs, Nano variant) |
-| SHA256    | `<UPDATE_AFTER_TRAINING>`                |
-| Download  | `<UPDATE_WITH_DOWNLOAD_URL>`             |
 
 ## Class Names (10 classes)
 
@@ -28,26 +26,19 @@
 
 ## Setup
 
-1. Download the model file from the URL above.
-2. Place it in this directory as `yolo26n.pt`.
-3. Verify the SHA256 hash:
+1. Export the trained `.pt` model to NCNN format:
 
    ```bash
-   sha256sum models/yolo26n.pt
-   # Must match the SHA256 value above
+   python -c "from ultralytics import YOLO; YOLO('best.pt').export(format='ncnn', imgsz=224)"
    ```
 
-4. (Optional) Export to NCNN for faster inference on Pi 4B (~4-5× speedup):
+   This creates a `best_ncnn_model/` directory containing `.param` and `.bin` files.
 
-   ```bash
-   python -c "from ultralytics import YOLO; YOLO('models/yolo26n.pt').export(format='ncnn', imgsz=320)"
-   ```
-
-   This creates a `yolo26n_ncnn_model/` directory next to the `.pt` file.
+2. Place the `best_ncnn_model/` directory in this `models/` folder.
 
 ## Notes
 
-- Model files are **git-ignored** — do NOT commit `.pt` or `.bin` files.
-- Input resolution: 320×320 pixels.
-- Expected inference time on Pi 4B: ~100–160ms per frame (NCNN).
+- Model files are **git-ignored** — do NOT commit `.param`, `.bin`, or model directories.
+- Input resolution: 224x224 pixels (configurable in `wtvendo/config.py`).
 - Confidence threshold: 0.5 (configurable in `wtvendo/config.py`).
+- NCNN provides ~4-5x speedup over PyTorch on Raspberry Pi 4B.

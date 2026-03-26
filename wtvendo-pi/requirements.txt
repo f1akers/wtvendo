@@ -1,4 +1,5 @@
 # WTVendo Pi — Core dependencies (Windows + Pi compatible)
+# YOLO inference uses NCNN backend via ultralytics
 ultralytics>=8.0
 pyserial>=3.5
 opencv-python>=4.8

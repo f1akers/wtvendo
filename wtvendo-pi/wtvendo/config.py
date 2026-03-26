@@ -42,8 +42,8 @@ RETRY_DELAY: float = 0.05
 # YOLO Model
 # ---------------------------------------------------------------------------
 
-MODEL_PATH: str = os.path.join(os.path.dirname(__file__), "..", "models", "model.pt")
-"""Path to the YOLO model weights file."""
+MODEL_PATH: str = os.path.join(os.path.dirname(__file__), "..", "models", "best_ncnn_model")
+"""Path to the YOLO NCNN model directory."""
 
 IMAGE_SIZE: int = 224
 """YOLO inference input resolution (224×224)."""
