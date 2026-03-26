@@ -10,8 +10,6 @@ venv/
 env/
 
 # YOLO models (download per models/README.md)
-models/*.bin
-models/*_ncnn_model/
 
 # IDE
 .vscode/
