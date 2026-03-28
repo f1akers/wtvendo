@@ -303,19 +303,26 @@ class Classifier:
             raise RuntimeError("Model not loaded — call load() first")
 
         resized = cv2.resize(frame, (self.image_size, self.image_size))
+        # Keep a reference to the contiguous array alive — ncnn.Mat.from_pixels
+        # stores a raw pointer to the data buffer without preventing Python GC.
+        pixel_data = np.ascontiguousarray(resized)
         mat_in = ncnn.Mat.from_pixels(
-            np.ascontiguousarray(resized),
+            pixel_data,
             ncnn.Mat.PixelType.PIXEL_BGR2RGB,
             self.image_size,
             self.image_size,
         )
         mat_in.substract_mean_normalize([0.0, 0.0, 0.0], [1 / 255.0, 1 / 255.0, 1 / 255.0])
 
-        with self._net.create_extractor() as ex:
-            ex.input("in0", mat_in)
-            _, mat_out = ex.extract("out0")
+        ex = self._net.create_extractor()
+        ex.input("in0", mat_in)
+        _, mat_out = ex.extract("out0")
+        output = np.array(mat_out)
 
-        return self._decode(np.array(mat_out))
+        # Release native resources explicitly before Python GC
+        del ex, mat_in, pixel_data
+
+        return self._decode(output)
 
     def _decode(self, output: np.ndarray) -> Optional[tuple[str, float]]:
         """
