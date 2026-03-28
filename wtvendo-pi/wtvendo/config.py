@@ -45,7 +45,7 @@ RETRY_DELAY: float = 0.05
 MODEL_PATH: str = os.path.join(os.path.dirname(__file__), "..", "models", "best_ncnn_model")
 """Path to the YOLO NCNN model directory."""
 
-IMAGE_SIZE: int = 320
+IMAGE_SIZE: int = 640
 """YOLO inference input resolution (320×320)."""
 
 CONFIDENCE_THRESHOLD: float = 0.5
