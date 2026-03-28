@@ -3,8 +3,9 @@ YOLO bottle classifier module for WTVendo.
 
 Provides camera abstraction and YOLO inference for classifying bottle types.
 Supports picamera2 (Pi Camera) and OpenCV (USB webcam) backends via a factory
-function. The Classifier class loads a YOLO NCNN model and runs single-frame
-detection returning the top class name and confidence.
+function. The Classifier class loads a YOLO NCNN model directory and runs
+single-frame detection using the ncnn Python bindings directly — no PyTorch
+required.
 
 Usage:
     from wtvendo.classifier import Classifier, create_camera
@@ -225,16 +226,9 @@ def create_camera(backend_name: str = "picamera2") -> CameraBackend:
 # ---------------------------------------------------------------------------
 
 
-def _to_numpy(data: object) -> np.ndarray:
-    """Convert ultralytics result data to numpy, handling both tensor and array."""
-    if isinstance(data, np.ndarray):
-        return data
-    return data.cpu().numpy()  # type: ignore[union-attr]
-
-
 class Classifier:
     """
-    YOLO-based bottle classifier.
+    YOLO-based bottle classifier using ncnn inference directly.
 
     Loads a YOLO NCNN model directory and provides single-frame classification
     returning the top detection's class name and confidence.
@@ -254,7 +248,8 @@ class Classifier:
         self.model_path = os.path.abspath(model_path)
         self.image_size = image_size
         self.confidence_threshold = confidence_threshold
-        self._model = None
+        self._net = None
+        self._names: dict[int, str] = {}
 
     def load(self) -> None:
         """
@@ -263,24 +258,36 @@ class Classifier:
         Raises:
             FileNotFoundError: If model directory does not exist.
         """
+        import ncnn
+        import yaml
+
         if not os.path.isdir(self.model_path):
             raise FileNotFoundError(
                 f"YOLO NCNN model directory not found at {self.model_path}. "
                 "See models/README.md for setup instructions."
             )
 
-        from ultralytics import YOLO  # type: ignore[import-untyped]
+        param = os.path.join(self.model_path, "model.ncnn.param")
+        weights = os.path.join(self.model_path, "model.ncnn.bin")
+        meta = os.path.join(self.model_path, "metadata.yaml")
 
-        self._model = YOLO(self.model_path)
-        logger.info("YOLO model loaded from %s", self.model_path)
+        with open(meta) as f:
+            metadata = yaml.safe_load(f)
+        self._names = {int(k): v for k, v in metadata["names"].items()}
+
+        net = ncnn.Net()
+        net.opt.use_vulkan_compute = False
+        net.load_param(param)
+        net.load_model(weights)
+        self._net = net
+
+        logger.info(
+            "YOLO NCNN model loaded from %s (%d classes)", self.model_path, len(self._names)
+        )
 
     def classify(self, frame: np.ndarray) -> Optional[tuple[str, float]]:
         """
         Run YOLO inference on a single frame.
-
-        Calls model.predict() with the configured image size and confidence
-        threshold. Returns the top detection (highest confidence) if any
-        detections are present.
 
         Args:
             frame: BGR image as NumPy array (H×W×3, uint8).
@@ -289,39 +296,46 @@ class Classifier:
             (class_name, confidence) tuple for the top detection, or None
             if no detections meet the confidence threshold.
         """
-        if self._model is None:
+        import ncnn
+
+        if self._net is None:
             raise RuntimeError("Model not loaded — call load() first")
 
-        results = self._model.predict(
-            frame,
-            imgsz=self.image_size,
-            conf=self.confidence_threshold,
-            verbose=False,
+        h, w = frame.shape[:2]
+        mat_in = ncnn.Mat.from_pixels_resize(
+            np.ascontiguousarray(frame),
+            ncnn.Mat.PixelType.PIXEL_BGR2RGB,
+            w, h,
+            self.image_size, self.image_size,
         )
+        mat_in.substract_mean_normalize([0.0, 0.0, 0.0], [1 / 255.0, 1 / 255.0, 1 / 255.0])
 
-        # results is a list with one Results object per image
-        if not results or len(results) == 0:
+        with self._net.create_extractor() as ex:
+            ex.input("in0", mat_in)
+            _, mat_out = ex.extract("out0")
+
+        return self._decode(np.array(mat_out))
+
+    def _decode(self, output: np.ndarray) -> Optional[tuple[str, float]]:
+        """
+        Decode raw NCNN output to (class_name, confidence).
+
+        Ultralytics NCNN export shape: (4+num_classes, num_anchors).
+        Rows 0-3 are bbox (cx,cy,w,h); rows 4+ are per-class scores.
+        """
+        preds = output.T  # (num_anchors, 4+num_classes)
+        class_scores = preds[:, 4:]
+        confidences = class_scores.max(axis=1)
+        class_ids = class_scores.argmax(axis=1)
+
+        mask = confidences >= self.confidence_threshold
+        if not mask.any():
             return None
 
-        result = results[0]
+        best = int(confidences[mask].argmax())
+        cls_id = int(class_ids[mask][best])
+        conf = float(confidences[mask][best])
 
-        # result.boxes contains detections; empty if nothing found
-        if result.boxes is None or len(result.boxes) == 0:
-            return None
-
-        # Get the detection with highest confidence
-        confidences = _to_numpy(result.boxes.conf)
-        class_ids = _to_numpy(result.boxes.cls).astype(int)
-
-        best_idx = int(confidences.argmax())
-        best_conf = float(confidences[best_idx])
-        best_cls_id = class_ids[best_idx]
-
-        # Map class ID to name via model's names dict
-        class_name = result.names.get(best_cls_id, f"unknown_{best_cls_id}")
-
-        logger.debug(
-            "Classification: '%s' (conf=%.3f, id=%d)", class_name, best_conf, best_cls_id
-        )
-
-        return (class_name, best_conf)
+        class_name = self._names.get(cls_id, f"unknown_{cls_id}")
+        logger.debug("Classification: '%s' (conf=%.3f, id=%d)", class_name, conf, cls_id)
+        return class_name, conf
