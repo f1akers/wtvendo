@@ -137,11 +137,13 @@ def handle_idle(
     classifier: Classifier,
     lcd_dirty: list[bool],
     last_scan_time: list[float],
+    pending_result: list,
 ) -> None:
     """
     IDLE state: run ML inference every IDLE_SCAN_INTERVAL seconds.
 
-    On bottle detected by YOLO → transition to SCANNING.
+    On bottle detected by YOLO → transition to SCANNING with the result
+    stashed in pending_result so handle_scanning can skip re-inference.
     """
     now = time.monotonic()
     if now - last_scan_time[0] < IDLE_SCAN_INTERVAL:
@@ -158,6 +160,8 @@ def handle_idle(
     logger.debug("IDLE scan result: %s", result)
     if result is not None:
         logger.info("Bottle detected by ML scan — starting scan")
+        pending_result.clear()
+        pending_result.append(result)
         session.start_scan()
         lcd_dirty[0] = True
 
@@ -168,29 +172,30 @@ def handle_scanning(
     camera: CameraBackend,
     classifier: Classifier,
     lcd_dirty: list[bool],
+    pending_result: list,
 ) -> None:
     """
-    SCANNING state: capture camera frame and begin classification.
-
-    Captures a single frame, then transitions to CLASSIFYING and immediately
-    runs inference (since it's synchronous and fast enough at ~100-160ms).
+    SCANNING state: use pre-classified result from IDLE scan if available,
+    otherwise capture and classify a new frame.
     """
     # Show scanning message
     send_lcd_lines(conn, format_scanning())
 
     session.start_classify()
 
-    try:
-        frame = camera.capture()
-    except RuntimeError as exc:
-        logger.error("Camera capture failed: %s", exc)
-        session.classification_failed()
-        send_lcd_lines(conn, format_classification_failed())
-        lcd_dirty[0] = True
-        return
-
-    # Run YOLO inference
-    result = classifier.classify(frame)
+    # Use the result that IDLE/ITEM_SELECT already classified
+    if pending_result:
+        result = pending_result.pop(0)
+    else:
+        try:
+            frame = camera.capture()
+        except RuntimeError as exc:
+            logger.error("Camera capture failed: %s", exc)
+            session.classification_failed()
+            send_lcd_lines(conn, format_classification_failed())
+            lcd_dirty[0] = True
+            return
+        result = classifier.classify(frame)
 
     if result is None:
         logger.info("No bottle detected by YOLO — classification failed")
@@ -261,6 +266,7 @@ def handle_item_select(
     camera: CameraBackend,
     classifier: Classifier,
     last_scan_time: list[float],
+    pending_result: list,
 ) -> None:
     """
     ITEM_SELECT state: process keypad events; scan for another bottle via ML.
@@ -278,6 +284,8 @@ def handle_item_select(
             logger.debug("ITEM_SELECT scan result: %s", result)
             if result is not None:
                 logger.info("Another bottle detected — returning to SCANNING")
+                pending_result.clear()
+                pending_result.append(result)
                 session.start_scan()
                 lcd_dirty[0] = True
                 return
@@ -486,6 +494,7 @@ def main_loop(
     lcd_dirty: list[bool] = [False]
     last_lcd_state: SessionState | None = None
     last_scan_time: list[float] = [0.0]  # Shared idle/item-select scan timer
+    pending_result: list = []  # Stashed (class_name, conf) from IDLE/ITEM_SELECT scan
 
     logger.info("Entering main loop")
 
@@ -499,10 +508,14 @@ def main_loop(
         current_state = session.state
 
         if current_state == SessionState.IDLE:
-            handle_idle(session, camera, classifier, lcd_dirty, last_scan_time)
+            handle_idle(
+                session, camera, classifier, lcd_dirty, last_scan_time, pending_result
+            )
 
         elif current_state == SessionState.SCANNING:
-            handle_scanning(session, conn, camera, classifier, lcd_dirty)
+            handle_scanning(
+                session, conn, camera, classifier, lcd_dirty, pending_result
+            )
 
         elif current_state == SessionState.CLASSIFYING:
             # CLASSIFYING is handled synchronously within handle_scanning
@@ -516,7 +529,8 @@ def main_loop(
 
         elif current_state == SessionState.ITEM_SELECT:
             handle_item_select(
-                session, conn, events, lcd_dirty, camera, classifier, last_scan_time
+                session, conn, events, lcd_dirty, camera, classifier,
+                last_scan_time, pending_result,
             )
 
         elif current_state == SessionState.DISPENSING:
@@ -616,8 +630,9 @@ def _run_preview() -> None:
 
 def main() -> None:
     """Application entry point."""
+    log_level = os.environ.get("WTVENDO_LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
-        level=logging.INFO,
+        level=getattr(logging, log_level, logging.INFO),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
