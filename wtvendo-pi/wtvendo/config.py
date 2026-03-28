@@ -55,7 +55,7 @@ CONFIDENCE_THRESHOLD: float = 0.5
 # Camera
 # ---------------------------------------------------------------------------
 
-CAMERA_BACKEND: str = os.environ.get("WTVENDO_CAMERA_BACKEND", "picamera2")
+CAMERA_BACKEND: str = os.environ.get("WTVENDO_CAMERA_BACKEND", "opencv")
 """Camera backend: 'picamera2' (Pi Camera, default) or 'opencv' (USB webcam).
 PiCamera2 is primary; OpenCV is the fallback. Override via WTVENDO_CAMERA_BACKEND."""
 
