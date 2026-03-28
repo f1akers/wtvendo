@@ -296,17 +296,18 @@ class Classifier:
             (class_name, confidence) tuple for the top detection, or None
             if no detections meet the confidence threshold.
         """
+        import cv2
         import ncnn
 
         if self._net is None:
             raise RuntimeError("Model not loaded — call load() first")
 
-        h, w = frame.shape[:2]
-        mat_in = ncnn.Mat.from_pixels_resize(
-            np.ascontiguousarray(frame),
+        resized = cv2.resize(frame, (self.image_size, self.image_size))
+        mat_in = ncnn.Mat.from_pixels(
+            np.ascontiguousarray(resized),
             ncnn.Mat.PixelType.PIXEL_BGR2RGB,
-            w, h,
-            self.image_size, self.image_size,
+            self.image_size,
+            self.image_size,
         )
         mat_in.substract_mean_normalize([0.0, 0.0, 0.0], [1 / 255.0, 1 / 255.0, 1 / 255.0])
 
