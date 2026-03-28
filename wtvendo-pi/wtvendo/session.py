@@ -63,7 +63,7 @@ class Session:
     """
 
     def __init__(self) -> None:
-        self.points: int = 5000
+        self.points: int = 0
         self.state: SessionState = SessionState.IDLE
         self.active: bool = False
         self.last_activity: float = time.monotonic()
