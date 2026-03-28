@@ -630,7 +630,7 @@ def _run_preview() -> None:
 
 def main() -> None:
     """Application entry point."""
-    log_level = os.environ.get("WTVENDO_LOG_LEVEL", "INFO").upper()
+    log_level = os.environ.get("WTVENDO_LOG_LEVEL", "DEBUG").upper()
     logging.basicConfig(
         level=getattr(logging, log_level, logging.INFO),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
