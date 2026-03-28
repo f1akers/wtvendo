@@ -157,7 +157,7 @@ def handle_idle(
         return
 
     result = classifier.classify(frame)
-    logger.debug("IDLE scan result: %s", result)
+    logger.info("IDLE scan result: %s", result)
     if result is not None:
         logger.info("Bottle detected by ML scan — starting scan")
         pending_result.clear()
@@ -281,7 +281,7 @@ def handle_item_select(
         try:
             frame = camera.capture()
             result = classifier.classify(frame)
-            logger.debug("ITEM_SELECT scan result: %s", result)
+            logger.info("ITEM_SELECT scan result: %s", result)
             if result is not None:
                 logger.info("Another bottle detected — returning to SCANNING")
                 pending_result.clear()
@@ -630,7 +630,7 @@ def _run_preview() -> None:
 
 def main() -> None:
     """Application entry point."""
-    log_level = os.environ.get("WTVENDO_LOG_LEVEL", "DEBUG").upper()
+    log_level = os.environ.get("WTVENDO_LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
         level=getattr(logging, log_level, logging.INFO),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
