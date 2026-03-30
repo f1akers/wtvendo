@@ -48,7 +48,7 @@ MODEL_PATH: str = os.path.join(os.path.dirname(__file__), "..", "models", "best_
 IMAGE_SIZE: int = 640
 """YOLO inference input resolution (320×320)."""
 
-CONFIDENCE_THRESHOLD: float = 0.7
+CONFIDENCE_THRESHOLD: float = 0.8
 """Minimum detection confidence to accept a classification."""
 
 # ---------------------------------------------------------------------------
