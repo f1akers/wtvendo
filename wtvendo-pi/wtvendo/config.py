@@ -90,7 +90,7 @@ BOTTLE_POINTS: dict[str, int] = {
     "small soda":           2,
     "small thick bottle":   2,
     "xs soda":              1,
-    "xs thick":             1,
+    "xs thick bottle":      1,
 }
 """Mapping of YOLO class name → points awarded per bottle."""
 
