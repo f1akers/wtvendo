@@ -33,6 +33,12 @@ KeypadInput::KeypadInput()
     , _pendingKey(0)
 {
     _keypad.setDebounceTime(KEYPAD_DEBOUNCE_MS);
+
+    // Enable internal pull-ups on column (input) pins to prevent
+    // ghost reads from floating inputs on membrane keypads.
+    for (uint8_t i = 0; i < 4; i++) {
+        pinMode(KEYPAD_COL_PINS[i], INPUT_PULLUP);
+    }
 }
 
 // ── Public Methods ──────────────────────────────────────────────────

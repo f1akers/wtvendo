@@ -48,7 +48,7 @@ MODEL_PATH: str = os.path.join(os.path.dirname(__file__), "..", "models", "best_
 IMAGE_SIZE: int = 640
 """YOLO inference input resolution (320×320)."""
 
-CONFIDENCE_THRESHOLD: float = 0.5
+CONFIDENCE_THRESHOLD: float = 0.7
 """Minimum detection confidence to accept a classification."""
 
 # ---------------------------------------------------------------------------
@@ -107,7 +107,7 @@ ITEM_SLOTS: dict[int, tuple[str, int, int, str]] = {
     3: ("Pencil",            1, 5300, "ccw"),
     4: ("Correction Tape",   3, 5300, "ccw"),
     5: ("Index Paper",       2, 5300, "ccw"),
-    6: ("Bondpaper",         6, 5300, "ccw"),
+    6: ("Bondpaper",         6, 5300, "cw"),
 }
 """
 Slot number (1–6) → (display_name, point_cost, servo_spin_duration_ms, direction).
